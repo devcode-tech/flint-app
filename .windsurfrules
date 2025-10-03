@@ -1,0 +1,34 @@
+{
+  "$schema": "https://cdn.windsurf.com/schemas/.windsurfrules.json",
+  "name": "Next.js + App Router + Radix UI",
+  "rules": [
+    {
+      "scope": "component",
+      "instruction": "Generate a new component based on the following technologies: Next.js App Router, Tailwind CSS, Lucide React, Radix UI, and React Hook Form. Place the component file in the `src/components/organisms` directory and use a camelCase file name with a `.tsx` extension."
+    },
+    {
+      "scope": "tailwind",
+      "instruction": "Use Tailwind CSS for styling. Prefer using `cn` utility to merge class names conditionally."
+    },
+    {
+      "scope": "imports",
+      "instruction": "Use `@` to alias all imports from the `src` directory. Ensure component imports for Lucide React and Radix UI are correct."
+    },
+    {
+      "scope": "folder-structure",
+      "instruction": "Follow the organism folder structure. All new complex components should be placed in `src/components/organisms`. Atoms and Molecules should be placed in `src/components/atoms` and `src/components/molecules` respectively. If a component is specific to a route, place it in the `app/<route-name>/components` folder."
+    },
+    {
+      "scope": "form",
+      "instruction": "When generating a form, use `react-hook-form` for state management and validation. Ensure all form elements are correctly wired up to the `useForm` hook."
+    },
+    {
+      "scope": "icons",
+      "instruction": "Use `lucide-react` for all icons. Icons should be imported and used as JSX components."
+    },
+    {
+      "scope": "accessibility",
+      "instruction": "Ensure all Radix UI components include appropriate accessibility props and attributes, following the conventions provided by the library."
+    }
+  ]
+}
