@@ -9,6 +9,7 @@ import { ContestPreview } from '@/components/organisms/ContestPreview'
 import ActionsForm from '@/components/organisms/ActionsForm'
 import PostCaptureForm from '@/components/organisms/PostCaptureForm'
 import TargetingForm from '@/components/organisms/TargetingForm'
+import { ContestFormBuilder, type ContestFormData } from '@/components/organisms/ContestFormBuilder'
 import { cn } from '@/lib/utils'
 import type { BasicDetailsFormData } from '@/schemas/contestSchema'
 
@@ -44,9 +45,12 @@ interface TargetingFormData {
   audienceSegment: string
 }
 
+// Form builder data type is imported from ContestFormBuilder
+
 export const CreateContestPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0)
   const [basicDetailsData, setBasicDetailsData] = useState<BasicDetailsFormData | null>(null)
+  const [formBuilderData, setFormBuilderData] = useState<ContestFormData | null>(null)
   const [actionsData, setActionsData] = useState<ActionsFormData | null>(null)
   const [postCaptureData, setPostCaptureData] = useState<PostCaptureFormData | null>(null)
   const [targetingData, setTargetingData] = useState<TargetingFormData | null>(null)
@@ -56,6 +60,12 @@ export const CreateContestPage: React.FC = () => {
     setBasicDetailsData(data)
     setCurrentStep(1)
     console.log('Basic Details submitted:', data)
+  }
+
+  const handleFormBuilderSubmit = (data: ContestFormData) => {
+    setFormBuilderData(data)
+    setCurrentStep(2)
+    console.log('Form Builder submitted:', data)
   }
 
   const handleActionsSubmit = (data: ActionsFormData) => {
@@ -77,6 +87,7 @@ export const CreateContestPage: React.FC = () => {
     // Here you would typically submit all the form data to your backend
     console.log('All form data:', {
       basicDetails: basicDetailsData,
+      formBuilder: formBuilderData,
       actions: actionsData,
       postCapture: postCaptureData,
       targeting: data
@@ -96,6 +107,9 @@ export const CreateContestPage: React.FC = () => {
       if (submitButton) {
         submitButton.click()
       }
+    } else if (currentStep === 1) {
+      // For form builder, move to next step (form builder handles its own save)
+      setCurrentStep(currentStep + 1)
     } else {
       setCurrentStep(currentStep + 1)
     }
@@ -108,6 +122,18 @@ export const CreateContestPage: React.FC = () => {
       icon: <Ticket className="w-6 h-6 text-[#141C25]" />
     }
   ]
+
+  // Fullscreen mode for form builder
+  if (currentStep === 1) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white">
+        <ContestFormBuilder
+          onSubmit={handleFormBuilderSubmit}
+          defaultValues={formBuilderData || undefined}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="h-full flex flex-col bg-white rounded-lg shadow-sm">
@@ -164,17 +190,7 @@ export const CreateContestPage: React.FC = () => {
               </div>
             )}
             
-            {/* Step 2: Create Form - Coming Soon */}
-            {currentStep === 1 && (
-              <div className="h-full flex flex-col items-center justify-center bg-gray-50 rounded-lg p-6">
-                <div className="text-[#637083] text-lg font-medium mb-2">
-                  Step 2 - Create Form (Coming Soon)
-                </div>
-                <div className="text-[#97A1AF] text-sm text-center mb-4">
-                  This step will be implemented in the next phase
-                </div>
-              </div>
-            )}
+            {/* Step 2: Create Form - Rendered in fullscreen mode above */}
             
             {/* Step 3: Actions */}
             {currentStep === 2 && (
@@ -225,6 +241,14 @@ export const CreateContestPage: React.FC = () => {
                       </pre>
                     </div>
                   )}
+                  {formBuilderData && (
+                    <div className="p-4 bg-white rounded-lg border">
+                      <h4 className="text-sm font-medium text-[#344051] mb-2">Form Builder:</h4>
+                      <pre className="text-xs text-[#637083] overflow-auto max-h-32">
+                        {JSON.stringify(formBuilderData, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                   {actionsData && (
                     <div className="p-4 bg-white rounded-lg border">
                       <h4 className="text-sm font-medium text-[#344051] mb-2">Actions:</h4>
@@ -254,10 +278,12 @@ export const CreateContestPage: React.FC = () => {
             )}
           </div>
           
-          {/* Preview Section */}
-          <div className="lg:flex-1 min-h-0">
-            <ContestPreview />
-          </div>
+          {/* Preview Section - Hidden on Create Form step (form builder has its own preview) */}
+          {currentStep !== 1 && (
+            <div className="lg:flex-1 min-h-0">
+              <ContestPreview />
+            </div>
+          )}
         </div>
     </div>
   )

@@ -1,18 +1,20 @@
 import { ContestViewPage } from '@/components/organisms/ContestViewPage'
 
 interface ContestPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
-export default function ContestPage({ params }: ContestPageProps) {
-  return <ContestViewPage contestId={params.id} />
+export default async function ContestPage({ params }: ContestPageProps) {
+  const { id } = await params
+  return <ContestViewPage contestId={id} />
 }
 
 export async function generateMetadata({ params }: ContestPageProps) {
+  const { id } = await params
   return {
-    title: `Contest ${params.id} - Flint App`,
-    description: `View and manage contest ${params.id}`,
+    title: `Contest ${id} - Flint App`,
+    description: `View and manage contest ${id}`,
   }
 }

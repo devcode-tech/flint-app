@@ -46,22 +46,22 @@ export const ContestTable: React.FC<ContestTableProps> = ({
                 Name
               </div>
             </div>
-            <div className="hidden sm:flex px-3 lg:px-5 py-3 lg:py-4 items-center gap-1 bg-[#F9FAFB] w-28 lg:w-32 flex-shrink-0">
+            <div className="flex px-3 lg:px-5 py-3 lg:py-4 items-center gap-1 bg-[#F9FAFB] w-28 lg:w-32 flex-shrink-0">
               <div className="text-[#344051] text-xs lg:text-sm font-semibold leading-5">
                 Created Date
               </div>
             </div>
-            <div className="hidden md:flex px-3 lg:px-5 py-3 lg:py-4 items-center gap-1 bg-[#F9FAFB] w-24 lg:w-28 flex-shrink-0">
+            <div className="flex px-3 lg:px-5 py-3 lg:py-4 items-center gap-1 bg-[#F9FAFB] w-24 lg:w-28 flex-shrink-0">
               <div className="text-[#344051] text-xs lg:text-sm font-semibold leading-5">
                 Impression
               </div>
             </div>
-            <div className="hidden md:flex px-3 lg:px-5 py-3 lg:py-4 items-center gap-1 bg-[#F9FAFB] w-24 lg:w-28 flex-shrink-0">
+            <div className="flex px-3 lg:px-5 py-3 lg:py-4 items-center gap-1 bg-[#F9FAFB] w-24 lg:w-28 flex-shrink-0">
               <div className="text-[#344051] text-xs lg:text-sm font-semibold leading-5">
                 Conversion
               </div>
             </div>
-            <div className="hidden lg:flex px-3 lg:px-5 py-3 lg:py-4 items-center gap-1 bg-[#F9FAFB] w-28 lg:w-32 flex-shrink-0">
+            <div className="flex px-3 lg:px-5 py-3 lg:py-4 items-center gap-1 bg-[#F9FAFB] w-28 lg:w-32 flex-shrink-0">
               <div className="text-[#344051] text-xs lg:text-sm font-semibold leading-5">
                 Conversion %
               </div>
@@ -94,15 +94,11 @@ export const ContestTable: React.FC<ContestTableProps> = ({
                   <div className="text-[#141C25] text-xs lg:text-sm font-semibold leading-5 truncate w-full hover:text-[#005EB8] transition-colors">
                     {contest.name}
                   </div>
-                  {/* Show additional info on mobile */}
-                  <div className="sm:hidden text-[#637083] text-xs leading-4 mt-1">
-                    {contest.createdDate} • {contest.conversionRate}%
-                  </div>
                 </button>
               </div>
 
-              {/* Created Date Column - Hidden on mobile */}
-              <div className="hidden sm:flex w-28 lg:w-32 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
+              {/* Created Date Column */}
+              <div className="flex w-28 lg:w-32 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col justify-center items-start">
                   <div className="text-[#637083] text-xs lg:text-sm font-medium leading-5">
                     {contest.createdDate}
@@ -110,8 +106,8 @@ export const ContestTable: React.FC<ContestTableProps> = ({
                 </div>
               </div>
 
-              {/* Impression Column - Hidden on mobile/tablet */}
-              <div className="hidden md:flex w-24 lg:w-28 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
+              {/* Impression Column */}
+              <div className="flex w-24 lg:w-28 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col justify-center items-start">
                   <div className="text-[#637083] text-xs lg:text-sm font-medium leading-5">
                     {contest.impression.toLocaleString()}
@@ -119,8 +115,8 @@ export const ContestTable: React.FC<ContestTableProps> = ({
                 </div>
               </div>
 
-              {/* Conversion Column - Hidden on mobile/tablet */}
-              <div className="hidden md:flex w-24 lg:w-28 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
+              {/* Conversion Column */}
+              <div className="flex w-24 lg:w-28 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col justify-center items-start">
                   <div className="text-[#637083] text-xs lg:text-sm font-medium leading-5">
                     {contest.conversion.toLocaleString()}
@@ -128,8 +124,8 @@ export const ContestTable: React.FC<ContestTableProps> = ({
                 </div>
               </div>
 
-              {/* Conversion % Column - Hidden on mobile/tablet */}
-              <div className="hidden lg:flex w-28 lg:w-32 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
+              {/* Conversion % Column */}
+              <div className="flex w-28 lg:w-32 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col justify-center items-start">
                   <div className="text-[#637083] text-xs lg:text-sm font-medium leading-5">
                     {contest.conversionRate}%

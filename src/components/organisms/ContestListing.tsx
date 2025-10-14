@@ -9,11 +9,11 @@ import { Pagination } from '@/components/molecules/Pagination'
 import { cn } from '@/lib/utils'
 import type { Contest, ContestFilters } from '@/types/contest'
 
-// Mock data
+// Mock data - using deterministic status to avoid hydration mismatch
 const mockContests: Contest[] = Array.from({ length: 50 }, (_, i) => ({
   id: `AR-24612474-${53 + i}`,
   name: `AR-24612474-${53 + i}`,
-  status: Math.random() > 0.5 ? 'active' : 'inactive',
+  status: i % 2 === 0 ? 'active' : 'inactive',
   createdDate: '03/25/24',
   impression: 10000,
   conversion: 9000,

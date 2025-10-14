@@ -1,39 +1,42 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 210 11% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 210 11% 15%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 11% 15%;
-    --primary: 210 100% 36%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 7% 97%;
-    --secondary-foreground: 210 6% 25%;
-    --muted: 210 7% 97%;
-    --muted-foreground: 210 6% 39%;
-    --accent: 210 7% 97%;
-    --accent-foreground: 210 6% 25%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 210 9% 89%;
-    --input: 210 9% 89%;
-    --ring: 210 100% 36%;
-    --radius: 0.5rem;
-  }
+@theme {
+  --font-sans: Inter, system-ui, sans-serif;
+  
+  /* Breakpoints */
+  --breakpoint-sm: 40rem; /* 640px */
+  --breakpoint-md: 48rem; /* 768px */
+  --breakpoint-lg: 64rem; /* 1024px */
+  --breakpoint-xl: 80rem; /* 1280px */
+  --breakpoint-2xl: 96rem; /* 1536px */
+  
+  /* Color variables */
+  --color-background: oklch(100% 0 0);
+  --color-foreground: oklch(28% 0 0);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(28% 0 0);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(28% 0 0);
+  --color-primary: oklch(57% 0.19 237);
+  --color-primary-foreground: oklch(100% 0 0);
+  --color-secondary: oklch(97% 0 0);
+  --color-secondary-foreground: oklch(38% 0 0);
+  --color-muted: oklch(97% 0 0);
+  --color-muted-foreground: oklch(55% 0 0);
+  --color-accent: oklch(97% 0 0);
+  --color-accent-foreground: oklch(38% 0 0);
+  --color-destructive: oklch(63% 0.24 29);
+  --color-destructive-foreground: oklch(100% 0 0);
+  --color-border: oklch(89% 0 0);
+  --color-input: oklch(89% 0 0);
+  --color-ring: oklch(57% 0.19 237);
+  
+  --radius: 0.5rem;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground font-sans;
-  }
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
 }
