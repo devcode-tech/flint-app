@@ -32,7 +32,8 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
         {/* Menu Toggle Button */}
         <button 
           onClick={toggleSidebar}
-          className="flex p-2 justify-center items-center rounded-lg hover:bg-[#F9FAFB] transition-colors lg:hidden"
+          className="flex p-2 justify-center items-center rounded-lg hover:bg-[#F9FAFB] transition-colors"
+          aria-label="Toggle sidebar"
         >
           <Menu className="w-5 h-5 text-[#414E62]" />
         </button>

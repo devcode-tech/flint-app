@@ -1,52 +1,20 @@
 'use client'
 
 import React from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { Control, useFormContext } from 'react-hook-form'
 import { cn } from '@/lib/utils'
 import FormDropdown from '@/components/atoms/FormDropdown'
 import FormInput from '@/components/atoms/FormInput'
-
-const postCaptureSchema = z.object({
-  behaviour: z.string().min(1, 'Behaviour is required'),
-  autoclose: z.string().min(1, 'Autoclose is required'),
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
-  url: z.string().url('Please enter a valid URL').min(1, 'URL is required'),
-})
-
-type PostCaptureFormData = z.infer<typeof postCaptureSchema>
+import type { CompleteContestData } from '@/schemas/contestSchema'
 
 interface PostCaptureFormProps {
-  onSubmit: (data: PostCaptureFormData) => void
+  control: Control<CompleteContestData>
+  fieldPrefix: 'postCapture'
   className?: string
 }
 
-const PostCaptureForm: React.FC<PostCaptureFormProps> = ({ onSubmit, className }) => {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isValid },
-    watch,
-    clearErrors,
-  } = useForm<PostCaptureFormData>({
-    resolver: zodResolver(postCaptureSchema),
-    mode: 'onChange',
-    defaultValues: {
-      behaviour: '',
-      autoclose: '',
-      title: '',
-      description: '',
-      url: '',
-    },
-  })
-
-  const watchedValues = watch()
-
-  const handleFormSubmit = (data: PostCaptureFormData) => {
-    onSubmit(data)
-  }
+const PostCaptureForm: React.FC<PostCaptureFormProps> = ({ control, fieldPrefix, className }) => {
+  const { formState: { errors } } = useFormContext<CompleteContestData>() || { formState: { errors: {} } }
 
   const behaviourOptions = [
     { value: 'thank-you', label: 'Thank You' },
@@ -70,23 +38,22 @@ const PostCaptureForm: React.FC<PostCaptureFormProps> = ({ onSubmit, className }
           Post Capture
         </h2>
         <p className="text-[#637083] font-inter text-sm font-normal leading-5">
-          Lorem Ipsum Dolor Sit Amet, Consectetur Adipiscing Elit
+          Define what happens after a user submits the contest form
         </p>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col flex-1" noValidate>
+      <div className="flex flex-col flex-1">
         <div className="flex flex-col gap-6 flex-1">
           {/* Behaviour */}
           <div className="flex flex-col gap-2">
             <FormDropdown
-              name="behaviour"
+              name={`${fieldPrefix}.behaviour`}
               control={control}
               label="Behaviour"
               placeholder="Thank You"
               options={behaviourOptions}
-              error={errors.behaviour?.message}
-              onFocus={() => clearErrors('behaviour')}
+              error={errors.postCapture?.behaviour?.message}
               required
             />
           </div>
@@ -94,13 +61,12 @@ const PostCaptureForm: React.FC<PostCaptureFormProps> = ({ onSubmit, className }
           {/* Autoclose */}
           <div className="flex flex-col gap-2">
             <FormDropdown
-              name="autoclose"
+              name={`${fieldPrefix}.autoclose`}
               control={control}
               label="Autoclose"
               placeholder="After 5 seconds"
               options={autocloseOptions}
-              error={errors.autoclose?.message}
-              onFocus={() => clearErrors('autoclose')}
+              error={errors.postCapture?.autoclose?.message}
               required
             />
           </div>
@@ -108,12 +74,11 @@ const PostCaptureForm: React.FC<PostCaptureFormProps> = ({ onSubmit, className }
           {/* Title */}
           <div className="flex flex-col gap-2">
             <FormInput
-              name="title"
+              name={`${fieldPrefix}.title`}
               control={control}
               label="Title"
               placeholder="Thank You Title"
-              error={errors.title?.message}
-              onFocus={() => clearErrors('title')}
+              error={errors.postCapture?.title?.message}
               required
             />
           </div>
@@ -121,12 +86,11 @@ const PostCaptureForm: React.FC<PostCaptureFormProps> = ({ onSubmit, className }
           {/* Description */}
           <div className="flex flex-col gap-2">
             <FormInput
-              name="description"
+              name={`${fieldPrefix}.description`}
               control={control}
               label="Description"
               placeholder="Description"
-              error={errors.description?.message}
-              onFocus={() => clearErrors('description')}
+              error={errors.postCapture?.description?.message}
               required
               multiline
               rows={4}
@@ -136,22 +100,16 @@ const PostCaptureForm: React.FC<PostCaptureFormProps> = ({ onSubmit, className }
           {/* URL */}
           <div className="flex flex-col gap-2">
             <FormInput
-              name="url"
+              name={`${fieldPrefix}.url`}
               control={control}
               label="URL"
               placeholder="https://"
-              error={errors.url?.message}
-              onFocus={() => clearErrors('url')}
+              error={errors.postCapture?.url?.message}
               required
             />
           </div>
         </div>
-
-        {/* Submit Button - Hidden as navigation is handled by parent */}
-        <button type="submit" className="hidden">
-          Submit
-        </button>
-      </form>
+      </div>
     </div>
   )
 }

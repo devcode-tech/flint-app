@@ -40,3 +40,64 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans);
 }
+
+/* Form Builder Package Fixes */
+/* Fix word-wrapping issue where text breaks into single words per line */
+.form-builder-container p,
+.form-builder-container div,
+.form-builder-container span,
+.form-builder-empty-state p,
+.form-builder-empty-state div,
+[class*="empty-state"] p,
+[class*="empty-state"] div {
+  word-wrap: normal !important;
+  word-break: normal !important;
+  white-space: normal !important;
+  max-width: 100% !important;
+  width: auto !important;
+}
+
+/* Ensure proper text flow in form builder */
+.form-builder-empty-state,
+[class*="empty-state"] {
+  max-width: 400px !important;
+  margin: 0 auto !important;
+}
+
+/* Fix font size controls - ensure they apply to preview */
+[class*="form-preview"] *,
+[class*="preview-container"] * {
+  font-size: inherit !important;
+}
+
+/* Fix spacing controls - ensure they apply to preview */
+[class*="form-preview"] > *,
+[class*="preview-container"] > * {
+  margin: inherit !important;
+  padding: inherit !important;
+}
+
+/* Fix theme inspector input widths */
+.theme-inspector input[type="number"],
+.theme-inspector input[type="text"],
+.design-inspector input[type="number"],
+.design-inspector input[type="text"],
+[class*="theme-inspector"] input[type="number"],
+[class*="theme-inspector"] input[type="text"],
+[class*="design-inspector"] input[type="number"],
+[class*="design-inspector"] input[type="text"] {
+  min-width: 80px !important;
+}
+
+/* Fix spacing controls */
+.spacing-control input,
+[class*="spacing-control"] input {
+  width: 100% !important;
+}
+
+/* Ensure form builder takes full height */
+[class*="form-builder"] {
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}

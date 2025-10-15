@@ -159,7 +159,11 @@ declare module '@devcode-tech/form-builder' {
 
   // Component Props
   export interface FormBuilderProps {
-    // Empty for now - standalone form builder
+    initialFormId?: string | null
+    onSave?: (data: any) => Promise<string | null>
+    onUpdate?: (formId: string, data: any) => Promise<boolean>
+    onLoad?: (formId: string) => Promise<any>
+    onSubmit?: (formData: Record<string, any>) => Promise<void>
   }
 
   export interface FormSchema {

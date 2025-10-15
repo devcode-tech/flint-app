@@ -1,45 +1,19 @@
 'use client'
 
 import React from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { Control, useFormContext } from 'react-hook-form'
 import { cn } from '@/lib/utils'
 import FormDropdown from '@/components/atoms/FormDropdown'
-
-const actionsSchema = z.object({
-  rewardType: z.string().min(1, 'Reward type is required'),
-  chooseReward: z.string().min(1, 'Choose reward is required'),
-})
-
-type ActionsFormData = z.infer<typeof actionsSchema>
+import type { CompleteContestData } from '@/schemas/contestSchema'
 
 interface ActionsFormProps {
-  onSubmit: (data: ActionsFormData) => void
+  control: Control<CompleteContestData>
+  fieldPrefix: 'actions'
   className?: string
 }
 
-const ActionsForm: React.FC<ActionsFormProps> = ({ onSubmit, className }) => {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isValid },
-    watch,
-    clearErrors,
-  } = useForm<ActionsFormData>({
-    resolver: zodResolver(actionsSchema),
-    mode: 'onChange',
-    defaultValues: {
-      rewardType: '',
-      chooseReward: '',
-    },
-  })
-
-  const watchedValues = watch()
-
-  const handleFormSubmit = (data: ActionsFormData) => {
-    onSubmit(data)
-  }
+const ActionsForm: React.FC<ActionsFormProps> = ({ control, fieldPrefix, className }) => {
+  const { formState: { errors } } = useFormContext<CompleteContestData>() || { formState: { errors: {} } }
 
   const rewardTypeOptions = [
     { value: 'single-coupon', label: 'Single Coupon' },
@@ -63,23 +37,22 @@ const ActionsForm: React.FC<ActionsFormProps> = ({ onSubmit, className }) => {
           Actions
         </h2>
         <p className="text-[#637083] font-inter text-sm font-normal leading-5">
-          Lorem Ipsum Dolor Sit Amet, Consectetur Adipiscing Elit
+          Configure rewards and actions for your contest
         </p>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col flex-1" noValidate>
+      <div className="flex flex-col flex-1">
         <div className="flex flex-col gap-6 flex-1">
           {/* Reward Type */}
           <div className="flex flex-col gap-2">
             <FormDropdown
-              name="rewardType"
+              name={`${fieldPrefix}.rewardType`}
               control={control}
               label="Reward Type"
               placeholder="Single Coupon"
               options={rewardTypeOptions}
-              error={errors.rewardType?.message}
-              onFocus={() => clearErrors('rewardType')}
+              error={errors.actions?.rewardType?.message}
               required
             />
           </div>
@@ -87,23 +60,17 @@ const ActionsForm: React.FC<ActionsFormProps> = ({ onSubmit, className }) => {
           {/* Choose Reward */}
           <div className="flex flex-col gap-2">
             <FormDropdown
-              name="chooseReward"
+              name={`${fieldPrefix}.chooseReward`}
               control={control}
               label="Choose Reward"
               placeholder="Dynamic Coupons"
               options={chooseRewardOptions}
-              error={errors.chooseReward?.message}
-              onFocus={() => clearErrors('chooseReward')}
+              error={errors.actions?.chooseReward?.message}
               required
             />
           </div>
         </div>
-
-        {/* Submit Button - Hidden as navigation is handled by parent */}
-        <button type="submit" className="hidden">
-          Submit
-        </button>
-      </form>
+      </div>
     </div>
   )
 }

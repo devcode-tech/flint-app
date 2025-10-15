@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, useRef, lazy, Suspense, useMemo } from 'react'
+import React, { useState, useRef, lazy, Suspense, useEffect, useMemo } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useRouter } from 'next/navigation'
 import { Ticket, ArrowLeft } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Breadcrumb } from '@/components/molecules/Breadcrumb'
 import { Stepper } from '@/components/molecules/Stepper'
 import { BasicDetailsForm } from '@/components/organisms/BasicDetailsForm'
@@ -43,9 +43,16 @@ const steps: ContestFormStep[] = [
   { id: 'targeting', title: 'Targeting' }
 ]
 
-export const CreateContestPage: React.FC = () => {
+// Types are now in schema
+
+interface EditContestPageProps {
+  contestId: string
+}
+
+export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) => {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
   const formRef = useRef<HTMLDivElement>(null)
 
   // Single useForm instance for all contest data
@@ -84,7 +91,7 @@ export const CreateContestPage: React.FC = () => {
     }
   })
 
-  const { handleSubmit, watch, setValue, getValues } = form
+  const { watch, setValue, getValues, reset } = form
 
   // Watch form builder data for preview
   const formBuilderData = watch('formBuilder')
@@ -96,6 +103,34 @@ export const CreateContestPage: React.FC = () => {
     }, 300),
     [setValue]
   )
+
+  // Load existing contest data
+  useEffect(() => {
+    const loadContestData = async () => {
+      try {
+        setIsLoading(true)
+        // TODO: Replace with actual API call to load contest data
+        // const response = await fetch(`/api/contests/${contestId}`)
+        // const contestData: CompleteContestData = await response.json()
+        
+        // Mock data for now - replace with actual loaded data
+        console.log('Loading contest data for:', contestId)
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Load data into form using reset()
+        // reset(contestData)
+        
+        setIsLoading(false)
+      } catch (error) {
+        console.error('Error loading contest:', error)
+        setIsLoading(false)
+      }
+    }
+
+    loadContestData()
+  }, [contestId, reset])
 
   // Handle step navigation with validation
   const handleStepSubmit = async (step: number) => {
@@ -141,25 +176,26 @@ export const CreateContestPage: React.FC = () => {
     }
   }
 
-  // Final submission - submit all data
+  // Final submission - update contest
   const handleFinalSubmit = async () => {
     const allData = getValues()
-    console.log('Contest creation completed!')
-    console.log('All form data:', allData)
+    console.log('Contest update completed!')
+    console.log('All updated form data:', allData)
 
     // TODO: Submit to backend
-    // 1. Submit form schema separately
-    // await submitFormSchema(allData.formBuilder)
+    // 1. Update form schema separately
+    // await updateFormSchema(contestId, allData.formBuilder)
     
-    // 2. Submit other contest data
-    // await submitContestData({
+    // 2. Update other contest data
+    // await updateContestData(contestId, {
     //   basicDetails: allData.basicDetails,
     //   actions: allData.actions,
     //   postCapture: allData.postCapture,
     //   targeting: allData.targeting
     // })
 
-    setCurrentStep(5)
+    // Redirect back to contest view page after successful update
+    router.push(`/contests/${contestId}`)
   }
 
   const handlePrevious = () => {
@@ -173,7 +209,7 @@ export const CreateContestPage: React.FC = () => {
   }
 
   const handleCancel = () => {
-    router.push('/contests')
+    router.push(`/contests/${contestId}`)
   }
 
   const breadcrumbItems = [
@@ -181,18 +217,26 @@ export const CreateContestPage: React.FC = () => {
       label: 'Contests',
       href: '/contests',
       icon: <Ticket className="w-6 h-6 text-[#141C25]" />
+    },
+    {
+      label: 'Edit Contest',
+      href: `/contests/${contestId}/edit`
     }
   ]
+
+  if (isLoading) {
+    return <FormLoading />
+  }
 
   return (
     <FormProvider {...form}>
       <div className="h-full flex flex-col bg-white rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="flex flex-col gap-4 md:gap-0 md:flex-row md:justify-between md:items-center px-4 lg:px-6 py-4 lg:py-5 border-b border-[#E4E7EC] flex-shrink-0">
-          {/* Top row on mobile: Breadcrumb and Action Buttons */}
-          <div className="flex justify-between items-center md:contents min-w-0">
-            {/* Breadcrumb with Back Button */}
-            <div className="flex items-center gap-3 flex-shrink-0 min-w-0 overflow-hidden">
+        <div className="flex flex-col gap-3 px-4 lg:px-6 py-4 lg:py-5 border-b border-[#E4E7EC] flex-shrink-0">
+          {/* Top Row: Breadcrumb and Action Buttons */}
+          <div className="flex justify-between items-center gap-4">
+            {/* Left: Back Button + Breadcrumb + Contest ID */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <button
                 onClick={handleCancel}
                 className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#E4E7EC] hover:bg-[#F9FAFB] transition-colors flex-shrink-0"
@@ -200,18 +244,19 @@ export const CreateContestPage: React.FC = () => {
               >
                 <ArrowLeft className="w-4 h-4 text-[#637083]" />
               </button>
-              <div className="min-w-0 overflow-hidden">
-                <Breadcrumb items={breadcrumbItems} />
-              </div>
+              <Breadcrumb items={breadcrumbItems} />
+              <span className="text-sm text-[#637083] font-medium truncate">
+                ({contestId})
+              </span>
             </div>
             
-            {/* Action Buttons - shown on mobile in top row */}
-            <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 md:order-3">
+            {/* Right: Action Buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={handlePrevious}
                 disabled={currentStep === 0}
                 className={cn(
-                  'flex px-2 md:px-3 lg:px-4 py-2 justify-center items-center gap-2 rounded border transition-colors text-xs lg:text-sm font-medium',
+                  'hidden md:flex px-3 lg:px-4 py-2 justify-center items-center gap-2 rounded border transition-colors text-sm font-medium',
                   currentStep === 0
                     ? 'border-[#E4E7EC] text-[#97A1AF] cursor-not-allowed'
                     : 'border-[#005EB8] text-[#005EB8] hover:bg-[#005EB8] hover:text-white'
@@ -222,18 +267,16 @@ export const CreateContestPage: React.FC = () => {
               
               <button
                 onClick={handleNext}
-                className="flex px-2 md:px-3 lg:px-4 py-2 justify-center items-center gap-2 rounded bg-[#005EB8] hover:bg-[#004A94] transition-colors text-xs lg:text-sm font-medium text-white"
+                className="flex px-3 lg:px-4 py-2 justify-center items-center gap-2 rounded bg-[#005EB8] hover:bg-[#004A94] transition-colors text-sm font-medium text-white"
               >
-                {currentStep === 4 ? 'Complete Contest' : currentStep === 5 ? 'Launch Contest' : 'Next Step'}
+                {currentStep === 4 ? 'Save Changes' : 'Next Step'}
               </button>
             </div>
           </div>
           
-          {/* Stepper - centered on mobile (bottom row), centered between breadcrumb and buttons on desktop */}
-          <div className="flex justify-center md:flex-1 md:px-4 md:order-2 min-w-0 overflow-x-auto">
-            <div className="min-w-max">
-              <Stepper steps={steps} currentStep={currentStep} />
-            </div>
+          {/* Bottom Row: Stepper */}
+          <div className="flex justify-center w-full">
+            <Stepper steps={steps} currentStep={currentStep} />
           </div>
         </div>
         
@@ -242,7 +285,7 @@ export const CreateContestPage: React.FC = () => {
           "flex-1 flex gap-4 lg:gap-6 min-h-0",
           currentStep === 1 ? "flex-col p-0" : "flex-col lg:flex-row p-4 lg:p-6"
         )}>
-          {/* Form Section - Full width on form builder step (step 1), reduced width on other steps with preview */}
+          {/* Form Section */}
           <div className={cn(
             "flex-1 min-h-0",
             currentStep === 1 ? "w-full" : "lg:flex-[0.55]"
@@ -264,6 +307,8 @@ export const CreateContestPage: React.FC = () => {
                   <ContestFormBuilder
                     onDataChange={debouncedSetFormBuilder}
                     defaultValues={formBuilderData}
+                    isEditMode={true}
+                    contestId={contestId}
                   />
                 </Suspense>
               </div>
@@ -302,54 +347,6 @@ export const CreateContestPage: React.FC = () => {
                     fieldPrefix="targeting"
                   />
                 </Suspense>
-              </div>
-            )}
-            
-            {/* Completion Summary - Show after all steps are completed */}
-            {currentStep === 5 && (
-              <div className="h-full flex flex-col items-center justify-center bg-gray-50 rounded-lg p-6">
-                <div className="text-[#005EB8] text-2xl font-semibold mb-4">
-                  🎉 Contest Created Successfully!
-                </div>
-                <div className="text-[#637083] text-lg font-medium mb-2">
-                  Your contest has been created and is ready to launch
-                </div>
-                <div className="text-[#97A1AF] text-sm text-center mb-6">
-                  Review the summary below or navigate back to make any changes
-                </div>
-                {/* Show all collected data */}
-                <div className="w-full max-w-2xl space-y-4">
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Basic Details:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('basicDetails'), null, 2)}
-                    </pre>
-                  </div>
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Form Builder:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('formBuilder'), null, 2)}
-                    </pre>
-                  </div>
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Actions:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('actions'), null, 2)}
-                    </pre>
-                  </div>
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Post Capture:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('postCapture'), null, 2)}
-                    </pre>
-                  </div>
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Targeting:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('targeting'), null, 2)}
-                    </pre>
-                  </div>
-                </div>
               </div>
             )}
           </div>

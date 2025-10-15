@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { Edit, Pause } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Breadcrumb } from '@/components/molecules/Breadcrumb'
 import { ShareCampaign } from '@/components/organisms/ShareCampaign'
 import { LeadsTable } from '@/components/organisms/LeadsTable'
@@ -25,12 +26,17 @@ export const ContestViewPage: React.FC<ContestViewPageProps> = ({
   contestId = 'AR-24612474-53',
   className 
 }) => {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('preview')
 
   const breadcrumbItems = [
     { label: 'Contests', href: '/contests' },
     { label: contestId, href: `/contests/${contestId}` },
   ]
+
+  const handleEditClick = () => {
+    router.push(`/contests/${contestId}/edit`)
+  }
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
@@ -40,7 +46,10 @@ export const ContestViewPage: React.FC<ContestViewPageProps> = ({
           <Breadcrumb items={breadcrumbItems} />
           
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2.5 border border-[#005EB8] text-[#005EB8] rounded-lg hover:bg-[#005EB8] hover:text-white transition-all duration-200 font-medium text-sm">
+            <button 
+              onClick={handleEditClick}
+              className="flex items-center gap-2 px-4 py-2.5 border border-[#005EB8] text-[#005EB8] rounded-lg hover:bg-[#005EB8] hover:text-white transition-all duration-200 font-medium text-sm"
+            >
               <Edit size={18} />
               <span>Edit</span>
             </button>
