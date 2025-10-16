@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, lazy, Suspense, useMemo } from 'react'
+import React, { useState, useRef, lazy, Suspense, useMemo, useCallback, useEffect } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
@@ -12,6 +12,9 @@ import { ContestPreview } from '@/components/organisms/ContestPreview'
 import { cn } from '@/lib/utils'
 import { completeContestSchema, type CompleteContestData } from '@/schemas/contestSchema'
 import { debounce } from '@/lib/utils/debounce'
+import { supabase } from '@/lib/supabase/client'
+import { generateFormId } from '@devcode-tech/form-builder'
+import { useFormSchema } from '@/hooks/useFormSchema'
 
 // Lazy load heavy components
 const ContestFormBuilder = lazy(() => import('@/components/organisms/ContestFormBuilder').then(mod => ({ default: mod.ContestFormBuilder })))
@@ -43,10 +46,20 @@ const steps: ContestFormStep[] = [
   { id: 'targeting', title: 'Targeting' }
 ]
 
-export const CreateContestPage: React.FC = () => {
+interface CreateContestPageProps {
+  contestId?: string
+}
+
+export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId }) => {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
   const formRef = useRef<HTMLDivElement>(null)
+  const [savedFormId, setSavedFormId] = useState<string | null>(null)
+  const [savedDbFormId, setSavedDbFormId] = useState<string | null>(null) // Database UUID
+  const [isSavingForm, setIsSavingForm] = useState(false)
+  const [isLoadingForm, setIsLoadingForm] = useState(false)
+  const [isLoadingContest, setIsLoadingContest] = useState(!!contestId)
+  const { fetchFormSchemaById } = useFormSchema()
 
   // Single useForm instance for all contest data
   const form = useForm<CompleteContestData>({
@@ -84,10 +97,56 @@ export const CreateContestPage: React.FC = () => {
     }
   })
 
-  const { handleSubmit, watch, setValue, getValues } = form
+  const { handleSubmit, watch, setValue, getValues, reset } = form
 
   // Watch form builder data for preview
   const formBuilderData = watch('formBuilder')
+
+  // Load contest data if contestId is provided
+  useEffect(() => {
+    if (!contestId) return
+
+    const loadContestData = async () => {
+      try {
+        setIsLoadingContest(true)
+        console.log('Loading contest data for:', contestId)
+
+        const { data: contestData, error } = await supabase
+          .from('contests')
+          .select('*')
+          .eq('id', contestId)
+          .single()
+
+        if (error) {
+          console.error('Error loading contest:', error)
+          alert('Failed to load contest data')
+          return
+        }
+
+        if (contestData) {
+          console.log('Contest data loaded:', contestData)
+          
+          // Pre-fill basic details from contest data
+          setValue('basicDetails.name', contestData.name || '')
+          setValue('basicDetails.contestType', contestData.contest_type || '')
+          setValue('basicDetails.startDate', contestData.start_date || '')
+          setValue('basicDetails.endDate', contestData.end_date || '')
+
+          // If contest has a form schema, load it
+          if (contestData.form_schema_id) {
+            setSavedDbFormId(contestData.form_schema_id)
+            await loadFormSchemaFromDb()
+          }
+        }
+      } catch (error) {
+        console.error('Error loading contest:', error)
+      } finally {
+        setIsLoadingContest(false)
+      }
+    }
+
+    loadContestData()
+  }, [contestId, setValue])
 
   // Debounced form builder update for better performance
   const debouncedSetFormBuilder = useMemo(
@@ -96,6 +155,140 @@ export const CreateContestPage: React.FC = () => {
     }, 300),
     [setValue]
   )
+
+  // Load form schema from database
+  const loadFormSchemaFromDb = useCallback(async () => {
+    if (!savedDbFormId) {
+      console.log('No saved form ID to load')
+      return
+    }
+
+    try {
+      setIsLoadingForm(true)
+      console.log('Loading form schema from database:', savedDbFormId)
+      
+      const formData = await fetchFormSchemaById(savedDbFormId)
+      
+      if (formData) {
+        console.log('Form schema loaded successfully:', formData)
+        // Update the form builder data with fetched schema
+        setValue('formBuilder', {
+          formId: formData.formId,
+          formTitle: formData.formTitle,
+          formDescription: formData.formDescription,
+          fields: formData.fields,
+          containers: formData.containers,
+          design: formData.design
+        })
+      } else {
+        console.error('Failed to load form schema')
+      }
+    } catch (error) {
+      console.error('Error loading form schema:', error)
+    } finally {
+      setIsLoadingForm(false)
+    }
+  }, [savedDbFormId, fetchFormSchemaById, setValue])
+
+  // Save or update form schema to database
+  const saveFormSchema = async () => {
+    try {
+      setIsSavingForm(true)
+      const formBuilderData = getValues('formBuilder')
+      const { formTitle, formDescription, fields, containers, design } = formBuilderData
+      
+      const schema = {
+        title: formTitle,
+        description: formDescription,
+        fields,
+        containers,
+        design,
+      }
+
+      let dbFormId: string
+      let embedId: string
+
+      // Check if we're updating an existing form schema
+      if (savedDbFormId) {
+        // UPDATE existing form schema
+        console.log('Updating existing form schema:', savedDbFormId)
+        
+        const { data, error } = await supabase
+          .from('form_schemas')
+          .update({
+            title: formTitle,
+            description: formDescription,
+            schema: schema,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', savedDbFormId)
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Error updating form:', error)
+          alert(`Error updating form: ${error.message}`)
+          return null
+        }
+
+        dbFormId = data.id
+        embedId = data.form_id
+        console.log('Form updated successfully:', data)
+      } else {
+        // CREATE new form schema
+        embedId = generateFormId()
+        
+        const { data, error } = await supabase
+          .from('form_schemas')
+          .insert([
+            {
+              title: formTitle,
+              description: formDescription,
+              schema: schema,
+              form_id: embedId,
+              contest_id: contestId, // Link to contest
+            },
+          ])
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Error saving form:', error)
+          alert(`Error saving form: ${error.message}`)
+          return null
+        }
+
+        dbFormId = data.id
+        console.log('Form created successfully:', data)
+
+        // Update contest record with form_schema_id
+        if (contestId) {
+          const { error: contestError } = await supabase
+            .from('contests')
+            .update({ form_schema_id: dbFormId })
+            .eq('id', contestId)
+
+          if (contestError) {
+            console.error('Error linking form to contest:', contestError)
+          } else {
+            console.log('Contest linked to form schema successfully')
+          }
+        }
+      }
+
+      setSavedFormId(embedId) // Embed ID for display
+      setSavedDbFormId(dbFormId) // Database ID for fetching
+      setValue('formBuilder.formId', dbFormId)
+      
+      return dbFormId
+    } catch (error) {
+      console.error('Error saving form:', error)
+      alert('Error saving form to database. Please try again.')
+      return null
+    } finally {
+      setIsSavingForm(false)
+    }
+  }
 
   // Handle step navigation with validation
   const handleStepSubmit = async (step: number) => {
@@ -110,9 +303,12 @@ export const CreateContestPage: React.FC = () => {
         }
         break
 
-      case 1: // Form Builder - no validation required, auto-saves
+      case 1: // Form Builder - Save to database before proceeding
         console.log('Form Builder data:', getValues('formBuilder'))
-        setCurrentStep(2)
+        const formId = await saveFormSchema()
+        if (formId) {
+          setCurrentStep(2)
+        }
         break
 
       case 2: // Actions
@@ -162,9 +358,16 @@ export const CreateContestPage: React.FC = () => {
     setCurrentStep(5)
   }
 
-  const handlePrevious = () => {
+  const handlePrevious = async () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
+      const newStep = currentStep - 1
+      
+      // If going back to form builder step (step 1) and we have a saved form, load it from DB
+      if (newStep === 1 && savedDbFormId) {
+        await loadFormSchemaFromDb()
+      }
+      
+      setCurrentStep(newStep)
     }
   }
 
@@ -183,6 +386,11 @@ export const CreateContestPage: React.FC = () => {
       icon: <Ticket className="w-6 h-6 text-[#141C25]" />
     }
   ]
+
+  // Show loading screen while contest data is being loaded
+  if (isLoadingContest) {
+    return <FormLoading />
+  }
 
   return (
     <FormProvider {...form}>
@@ -222,9 +430,15 @@ export const CreateContestPage: React.FC = () => {
               
               <button
                 onClick={handleNext}
-                className="flex px-2 md:px-3 lg:px-4 py-2 justify-center items-center gap-2 rounded bg-[#005EB8] hover:bg-[#004A94] transition-colors text-xs lg:text-sm font-medium text-white"
+                disabled={isSavingForm}
+                className={cn(
+                  "flex px-2 md:px-3 lg:px-4 py-2 justify-center items-center gap-2 rounded transition-colors text-xs lg:text-sm font-medium text-white",
+                  isSavingForm 
+                    ? "bg-gray-400 cursor-not-allowed" 
+                    : "bg-[#005EB8] hover:bg-[#004A94]"
+                )}
               >
-                {currentStep === 4 ? 'Complete Contest' : currentStep === 5 ? 'Launch Contest' : 'Next Step'}
+                {isSavingForm ? 'Saving...' : currentStep === 4 ? 'Complete Contest' : currentStep === 5 ? 'Launch Contest' : 'Next Step'}
               </button>
             </div>
           </div>
@@ -260,18 +474,66 @@ export const CreateContestPage: React.FC = () => {
             {/* Step 2: Create Form */}
             {currentStep === 1 && (
               <div ref={formRef} className="h-full w-full">
-                <Suspense fallback={<FormLoading />}>
-                  <ContestFormBuilder
-                    onDataChange={debouncedSetFormBuilder}
-                    defaultValues={formBuilderData}
-                  />
-                </Suspense>
+                {isLoadingForm ? (
+                  <FormLoading />
+                ) : (
+                  <Suspense fallback={<FormLoading />}>
+                    <ContestFormBuilder
+                      onDataChange={debouncedSetFormBuilder}
+                      defaultValues={formBuilderData}
+                    />
+                  </Suspense>
+                )}
               </div>
             )}
             
             {/* Step 3: Actions */}
             {currentStep === 2 && (
-              <div ref={formRef} className="h-full">
+              <div ref={formRef} className="h-full space-y-4">
+                {/* Show Embed ID if form was saved */}
+                {savedFormId && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-green-900 mb-1">
+                          Form Created Successfully! 🎉
+                        </h3>
+                        <p className="text-sm text-green-700 mb-3">
+                          Your form has been saved. Use this embed ID to integrate it anywhere:
+                        </p>
+                        <div className="bg-white border border-green-300 rounded-lg p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-500 mb-1">Embed ID</p>
+                              <code className="text-lg font-mono font-bold text-green-700">{savedFormId}</code>
+                            </div>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(savedFormId)
+                                alert('Embed ID copied to clipboard!')
+                              }}
+                              className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors font-medium"
+                            >
+                              Copy ID
+                            </button>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-green-200">
+                            <p className="text-xs text-gray-600 mb-2">Embed code:</p>
+                            <code className="block text-xs bg-gray-50 p-2 rounded border border-gray-200 text-gray-700 overflow-x-auto">
+                              {`<div id="${savedFormId}"></div>`}
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <Suspense fallback={<FormLoading />}>
                   <ActionsForm
                     control={form.control}

@@ -6,6 +6,7 @@ import { Search, Calendar, Plus } from 'lucide-react'
 import { Tabs } from '@/components/molecules/Tabs'
 import { ContestTable } from '@/components/organisms/ContestTable'
 import { Pagination } from '@/components/molecules/Pagination'
+import { CreateContestModal } from '@/components/organisms/CreateContestModal'
 import { cn } from '@/lib/utils'
 import type { Contest, ContestFilters } from '@/types/contest'
 
@@ -34,6 +35,7 @@ export const ContestListing: React.FC = () => {
     dateRange: 'Last Month'
   })
   const [currentPage, setCurrentPage] = useState(1)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const contestsPerPage = 10
 
   // Memoize filtered contests to avoid recalculation on every render
@@ -84,15 +86,15 @@ export const ContestListing: React.FC = () => {
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-[#141C25]">Contests</h1>
-          <Link
-            href="/contests/create"
+          <button
+            onClick={() => setIsModalOpen(true)}
             className="flex px-4 py-2.5 justify-center items-center gap-2 rounded-lg bg-[#005EB8] shadow-sm hover:bg-[#004A94] transition-colors whitespace-nowrap"
           >
             <Plus className="w-4 h-4 text-white" />
             <span className="text-white text-center text-sm font-semibold">
               New Contest
             </span>
-          </Link>
+          </button>
         </div>
         
         <Tabs
@@ -155,6 +157,12 @@ export const ContestListing: React.FC = () => {
           onPageChange={setCurrentPage}
         />
       </div>
+
+      {/* Create Contest Modal */}
+      <CreateContestModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, lazy, Suspense, useEffect, useMemo } from 'react'
+import React, { useState, useRef, lazy, Suspense, useEffect, useMemo, useCallback } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Ticket, ArrowLeft } from 'lucide-react'
@@ -12,6 +12,9 @@ import { ContestPreview } from '@/components/organisms/ContestPreview'
 import { cn } from '@/lib/utils'
 import { completeContestSchema, type CompleteContestData } from '@/schemas/contestSchema'
 import { debounce } from '@/lib/utils/debounce'
+import { supabase } from '@/lib/supabase/client'
+import { useFormSchema } from '@/hooks/useFormSchema'
+import { generateFormId } from '@devcode-tech/form-builder'
 
 // Lazy load heavy components
 const ContestFormBuilder = lazy(() => import('@/components/organisms/ContestFormBuilder').then(mod => ({ default: mod.ContestFormBuilder })))
@@ -53,7 +56,10 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingForm, setIsLoadingForm] = useState(false)
+  const [savedDbFormId, setSavedDbFormId] = useState<string | null>(null)
   const formRef = useRef<HTMLDivElement>(null)
+  const { fetchFormSchemaById } = useFormSchema()
 
   // Single useForm instance for all contest data
   const form = useForm<CompleteContestData>({
@@ -104,23 +110,80 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
     [setValue]
   )
 
+  // Load form schema from database
+  const loadFormSchemaFromDb = useCallback(async (formSchemaId: string) => {
+    try {
+      setIsLoadingForm(true)
+      console.log('Loading form schema from database:', formSchemaId)
+      
+      const formData = await fetchFormSchemaById(formSchemaId)
+      
+      if (formData) {
+        console.log('Form schema loaded successfully:', formData)
+        // Update the form builder data with fetched schema
+        setValue('formBuilder', {
+          formId: formData.formId,
+          formTitle: formData.formTitle,
+          formDescription: formData.formDescription,
+          fields: formData.fields,
+          containers: formData.containers,
+          design: formData.design
+        })
+        setSavedDbFormId(formSchemaId)
+      } else {
+        console.error('Failed to load form schema')
+      }
+    } catch (error) {
+      console.error('Error loading form schema:', error)
+    } finally {
+      setIsLoadingForm(false)
+    }
+  }, [fetchFormSchemaById, setValue])
+
   // Load existing contest data
   useEffect(() => {
     const loadContestData = async () => {
       try {
         setIsLoading(true)
-        // TODO: Replace with actual API call to load contest data
-        // const response = await fetch(`/api/contests/${contestId}`)
-        // const contestData: CompleteContestData = await response.json()
-        
-        // Mock data for now - replace with actual loaded data
         console.log('Loading contest data for:', contestId)
         
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Fetch contest data from Supabase
+        const { data: contestData, error } = await supabase
+          .from('contests')
+          .select('*')
+          .eq('id', contestId)
+          .single()
         
-        // Load data into form using reset()
-        // reset(contestData)
+        if (error) {
+          console.error('Error loading contest:', error)
+          alert('Failed to load contest data')
+          setIsLoading(false)
+          return
+        }
+        
+        if (contestData) {
+          console.log('Contest data loaded:', contestData)
+          
+          // Pre-fill basic details from contest data
+          setValue('basicDetails.name', contestData.name || '')
+          setValue('basicDetails.contestType', contestData.contest_type || '')
+          setValue('basicDetails.startDate', contestData.start_date || '')
+          setValue('basicDetails.endDate', contestData.end_date || '')
+          
+          // TODO: Load other sections when available
+          // setValue('actions.rewardType', contestData.reward_type || '')
+          // setValue('postCapture.behaviour', contestData.post_capture_behaviour || '')
+          // setValue('targeting.audienceSegment', contestData.audience_segment || '')
+          
+          // If contest has a form schema, load it
+          if (contestData.form_schema_id) {
+            console.log('Contest has form schema, loading:', contestData.form_schema_id)
+            setSavedDbFormId(contestData.form_schema_id)
+            await loadFormSchemaFromDb(contestData.form_schema_id)
+          } else {
+            console.log('Contest has no form schema yet - will create on first save')
+          }
+        }
         
         setIsLoading(false)
       } catch (error) {
@@ -130,24 +193,152 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
     }
 
     loadContestData()
-  }, [contestId, reset])
+  }, [contestId, setValue, loadFormSchemaFromDb])
+
+  // Save or update form schema to database
+  const saveFormSchema = async () => {
+    try {
+      const formBuilderData = getValues('formBuilder')
+      const { formTitle, formDescription, fields, containers, design } = formBuilderData
+      
+      const schema = {
+        title: formTitle,
+        description: formDescription,
+        fields,
+        containers,
+        design,
+      }
+
+      let dbFormId: string
+
+      // Check if we're updating an existing form schema
+      if (savedDbFormId) {
+        // UPDATE existing form schema
+        console.log('Updating existing form schema:', savedDbFormId)
+        
+        const { data, error } = await supabase
+          .from('form_schemas')
+          .update({
+            title: formTitle,
+            description: formDescription,
+            schema: schema,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', savedDbFormId)
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Error updating form:', error)
+          alert(`Error updating form: ${error.message}`)
+          return null
+        }
+
+        dbFormId = data.id
+        console.log('Form updated successfully:', data)
+      } else {
+        // CREATE new form schema (contest exists but no form schema yet)
+        console.log('Creating new form schema for existing contest:', contestId)
+        
+        const embedId = generateFormId()
+        
+        const { data, error } = await supabase
+          .from('form_schemas')
+          .insert([{
+            title: formTitle,
+            description: formDescription,
+            schema: schema,
+            form_id: embedId,
+            contest_id: contestId,
+          }])
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Error creating form:', error)
+          alert(`Error creating form: ${error.message}`)
+          return null
+        }
+
+        dbFormId = data.id
+        console.log('Form created successfully:', data)
+
+        // Update contest record with form_schema_id
+        const { error: contestError } = await supabase
+          .from('contests')
+          .update({ form_schema_id: dbFormId })
+          .eq('id', contestId)
+
+        if (contestError) {
+          console.error('Error linking form to contest:', contestError)
+        } else {
+          console.log('Contest linked to form schema successfully')
+        }
+      }
+
+      setSavedDbFormId(dbFormId)
+      setValue('formBuilder.formId', dbFormId)
+      
+      return dbFormId
+    } catch (error) {
+      console.error('Error saving form:', error)
+      alert('Error saving form to database. Please try again.')
+      return null
+    }
+  }
+
+  // Update contest basic details
+  const updateContestBasicDetails = async () => {
+    try {
+      const basicDetails = getValues('basicDetails')
+      
+      const { error } = await supabase
+        .from('contests')
+        .update({
+          name: basicDetails.name,
+          contest_type: basicDetails.contestType,
+          start_date: basicDetails.startDate,
+          end_date: basicDetails.endDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', contestId)
+
+      if (error) {
+        console.error('Error updating contest:', error)
+        alert(`Error updating contest: ${error.message}`)
+        return false
+      }
+
+      console.log('Contest basic details updated successfully')
+      return true
+    } catch (error) {
+      console.error('Error updating contest:', error)
+      return false
+    }
+  }
 
   // Handle step navigation with validation
   const handleStepSubmit = async (step: number) => {
     let isValid = false
 
     switch (step) {
-      case 0: // Basic Details
+      case 0: // Basic Details - Update contest
         isValid = await form.trigger('basicDetails')
         if (isValid) {
           console.log('Basic Details validated:', getValues('basicDetails'))
-          setCurrentStep(1)
+          const updated = await updateContestBasicDetails()
+          if (updated) {
+            setCurrentStep(1)
+          }
         }
         break
 
-      case 1: // Form Builder - no validation required, auto-saves
+      case 1: // Form Builder - Save/Update form schema
         console.log('Form Builder data:', getValues('formBuilder'))
-        setCurrentStep(2)
+        const formId = await saveFormSchema()
+        if (formId) {
+          setCurrentStep(2)
+        }
         break
 
       case 2: // Actions
@@ -303,14 +494,18 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
             {/* Step 2: Create Form */}
             {currentStep === 1 && (
               <div ref={formRef} className="h-full w-full">
-                <Suspense fallback={<FormLoading />}>
-                  <ContestFormBuilder
-                    onDataChange={debouncedSetFormBuilder}
-                    defaultValues={formBuilderData}
-                    isEditMode={true}
-                    contestId={contestId}
-                  />
-                </Suspense>
+                {isLoadingForm ? (
+                  <FormLoading />
+                ) : (
+                  <Suspense fallback={<FormLoading />}>
+                    <ContestFormBuilder
+                      onDataChange={debouncedSetFormBuilder}
+                      defaultValues={formBuilderData}
+                      isEditMode={true}
+                      contestId={contestId}
+                    />
+                  </Suspense>
+                )}
               </div>
             )}
             

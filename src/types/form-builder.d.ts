@@ -191,7 +191,9 @@ declare module '@devcode-tech/form-builder' {
 
   // Utility Functions
   export function applyDefaultErrorMessagesToFields(fields: FormFieldData[]): FormFieldData[]
-  export function validateField(field: FormFieldData, value: any): { valid: boolean; error?: string }
+  export function validateField(field: FormFieldData, value: any): string | null
+  export function validateForm(fields: FormFieldData[], formData: Record<string, any>): Record<string, string>
+  export function generateFormId(): string
 
   // Configuration
   export const FIELD_LABELS: Record<FormFieldType, string>

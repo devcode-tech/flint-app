@@ -25,8 +25,14 @@ export const ContestTable: React.FC<ContestTableProps> = ({
     setActiveDropdown(null)
   }
 
-  const handleContestClick = (contestId: string) => {
+  const handleViewContest = (contestId: string) => {
+    // Navigate to view page
     router.push(`/contests/${contestId}`)
+  }
+
+  const handleEditContest = (contestId: string) => {
+    // Navigate to edit page
+    router.push(`/contests/${contestId}/edit`)
   }
 
   return (
@@ -88,7 +94,7 @@ export const ContestTable: React.FC<ContestTableProps> = ({
               {/* Name Column */}
               <div className="flex flex-1 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 min-w-[200px]">
                 <button
-                  onClick={() => handleContestClick(contest.id)}
+                  onClick={() => handleViewContest(contest.id)}
                   className="flex flex-col justify-center items-start min-w-0 text-left hover:opacity-80 transition-opacity"
                 >
                   <div className="text-[#141C25] text-xs lg:text-sm font-semibold leading-5 truncate w-full hover:text-[#005EB8] transition-colors">
@@ -136,8 +142,9 @@ export const ContestTable: React.FC<ContestTableProps> = ({
               {/* Actions Column */}
               <div className="flex w-16 lg:w-20 px-3 lg:px-5 py-4 lg:py-5 justify-end items-center gap-2 lg:gap-3 flex-shrink-0">
                 <button
-                  onClick={() => handleContestClick(contest.id)}
+                  onClick={() => handleViewContest(contest.id)}
                   className="w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 text-[#637083] hover:text-[#344051] transition-colors"
+                  title="View Contest"
                 >
                   <Eye className="w-4 h-4 lg:w-5 lg:h-5" />
                 </button>
@@ -152,6 +159,12 @@ export const ContestTable: React.FC<ContestTableProps> = ({
                   {/* Dropdown Menu */}
                   {activeDropdown === contest.id && (
                     <div className="absolute right-0 top-6 z-10 bg-white border border-[#E4E7EC] rounded-lg shadow-lg min-w-[160px]">
+                      <button
+                        onClick={() => handleEditContest(contest.id)}
+                        className="flex w-full px-3 py-2 text-left text-sm text-[#344051] hover:bg-[#F9FAFB] items-center gap-2"
+                      >
+                        Edit
+                      </button>
                       <button
                         onClick={() => handleActionClick(contest.id, 'duplicate')}
                         className="flex w-full px-3 py-2 text-left text-sm text-[#344051] hover:bg-[#F9FAFB] items-center gap-2"
