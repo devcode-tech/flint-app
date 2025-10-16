@@ -108,42 +108,64 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
 
     const loadContestData = async () => {
       try {
-        setIsLoadingContest(true)
-        console.log('Loading contest data for:', contestId)
-
+        setIsLoadingContest(true);
+        console.log('Loading contest data for:', contestId);
         const { data: contestData, error } = await supabase
           .from('contests')
           .select('*')
           .eq('id', contestId)
-          .single()
-
+          .single();
+    
         if (error) {
-          console.error('Error loading contest:', error)
-          alert('Failed to load contest data')
-          return
+          console.error('Error loading contest:', error);
+          alert('Failed to load contest data');
+          return;
         }
-
+    
         if (contestData) {
-          console.log('Contest data loaded:', contestData)
+          console.log('Contest data loaded:', contestData);
           
-          // Pre-fill basic details from contest data
-          setValue('basicDetails.name', contestData.name || '')
-          setValue('basicDetails.contestType', contestData.contest_type || '')
-          setValue('basicDetails.startDate', contestData.start_date || '')
-          setValue('basicDetails.endDate', contestData.end_date || '')
-
+          const formatDateForInput = (dateString: string) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+          };
+    
+          // Basic Details
+          setValue('basicDetails.name', contestData.name || '');
+          setValue('basicDetails.contestType', contestData.contest_type || '');
+          setValue('basicDetails.startDate', formatDateForInput(contestData.start_date));
+          setValue('basicDetails.endDate', formatDateForInput(contestData.end_date));
+    
+          // Actions
+          setValue('actions.rewardType', contestData.reward_type || '');
+          setValue('actions.chooseReward', contestData.reward_option || '');
+    
+          // Post Capture
+          setValue('postCapture.behaviour', contestData.capture_behaviour || '');
+          setValue('postCapture.autoclose', contestData.capture_autoclose || '');
+          setValue('postCapture.title', contestData.capture_title || '');
+          setValue('postCapture.description', contestData.capture_description || '');
+          setValue('postCapture.url', contestData.capture_url || '');
+    
+          // Targeting
+          if (contestData.audience_segments && contestData.audience_segments.length > 0) {
+            setValue('targeting.audienceSegment', contestData.audience_segments[0] || '');
+          }
+    
           // If contest has a form schema, load it
           if (contestData.form_schema_id) {
-            setSavedDbFormId(contestData.form_schema_id)
-            await loadFormSchemaFromDb()
+            setSavedDbFormId(contestData.form_schema_id);
+            await loadFormSchemaFromDb();
           }
         }
       } catch (error) {
-        console.error('Error loading contest:', error)
+        console.error('Error loading contest:', error);
+        alert('Failed to load contest data. Please try again.');
       } finally {
-        setIsLoadingContest(false)
+        setIsLoadingContest(false);
       }
-    }
+    };
 
     loadContestData()
   }, [contestId, setValue])
@@ -292,50 +314,139 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
 
   // Handle step navigation with validation
   const handleStepSubmit = async (step: number) => {
-    let isValid = false
-
-    switch (step) {
-      case 0: // Basic Details
-        isValid = await form.trigger('basicDetails')
-        if (isValid) {
-          console.log('Basic Details validated:', getValues('basicDetails'))
-          setCurrentStep(1)
-        }
-        break
-
-      case 1: // Form Builder - Save to database before proceeding
-        console.log('Form Builder data:', getValues('formBuilder'))
-        const formId = await saveFormSchema()
-        if (formId) {
-          setCurrentStep(2)
-        }
-        break
-
-      case 2: // Actions
-        isValid = await form.trigger('actions')
-        if (isValid) {
-          console.log('Actions validated:', getValues('actions'))
-          setCurrentStep(3)
-        }
-        break
-
-      case 3: // Post Capture
-        isValid = await form.trigger('postCapture')
-        if (isValid) {
-          console.log('Post Capture validated:', getValues('postCapture'))
-          setCurrentStep(4)
-        }
-        break
-
-      case 4: // Targeting - Final step
-        isValid = await form.trigger('targeting')
-        if (isValid) {
-          console.log('Targeting validated:', getValues('targeting'))
-          await handleFinalSubmit()
-        }
-        break
+    try {
+      let isValid = false;
+      let savedContest = null;
+  
+      switch (step) {
+        case 0: // Basic Details
+          isValid = await form.trigger('basicDetails');
+          if (isValid) {
+            const basicDetails = getValues('basicDetails');
+            savedContest = await saveContestData({
+              name: basicDetails.name,
+              contest_type: basicDetails.contestType,
+              start_date: basicDetails.startDate,
+              end_date: basicDetails.endDate,
+            }, 'basicDetails');
+            
+            if (savedContest) {
+              setCurrentStep(1);
+            }
+          }
+          break;
+  
+        case 1: // Form Builder - Save to database before proceeding
+          console.log('Form Builder data:', getValues('formBuilder'));
+          const formId = await saveFormSchema();
+          if (formId) {
+            setCurrentStep(2);
+          }
+          break;
+  
+        case 2: // Actions
+          isValid = await form.trigger('actions');
+          if (isValid) {
+            const actions = getValues('actions');
+            savedContest = await saveContestData({
+              reward_type: actions.rewardType,
+              reward_option: actions.chooseReward,
+            }, 'actions');
+            
+            if (savedContest) {
+              console.log('Actions validated and saved:', actions);
+              setCurrentStep(3);
+            }
+          }
+          break;
+  
+        case 3: // Post Capture
+          isValid = await form.trigger('postCapture');
+          if (isValid) {
+            const postCapture = getValues('postCapture');
+            savedContest = await saveContestData({
+              capture_behaviour: postCapture.behaviour,
+              capture_autoclose: postCapture.autoclose,
+              capture_title: postCapture.title,
+              capture_description: postCapture.description,
+              capture_url: postCapture.url,
+            }, 'postCapture');
+            
+            if (savedContest) {
+              console.log('Post Capture validated and saved:', postCapture);
+              setCurrentStep(4);
+            }
+          }
+          break;
+  
+        case 4: // Targeting - Final step
+          isValid = await form.trigger('targeting');
+          if (isValid) {
+            const targeting = getValues('targeting');
+            savedContest = await saveContestData({
+              audience_segments: [targeting.audienceSegment], // Save as array
+              status: 'active' // Mark as active when completing all steps
+            }, 'targeting');
+            
+            if (savedContest) {
+              console.log('Targeting validated and saved:', targeting);
+              await handleFinalSubmit();
+            }
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error in handleStepSubmit:', error);
+      // alert(`Failed to save data: ${error.message}`);
     }
-  }
+  };
+  const saveContestData = async (stepData: any, step: string) => {
+    try {
+      const url = contestId 
+        ? `/api/contests/${contestId}`
+        : '/api/contests';
+  
+      const method = contestId ? 'PUT' : 'POST';
+      
+      // Prepare the data to be saved based on the current step
+      let updateData: any = {
+        ...stepData,
+        // For new contests, set initial status
+        ...(!contestId && { status: 'draft' })
+      };
+  
+      // If this is the final step, update the status to active
+      if (step === 'targeting') {
+        updateData.status = 'active';
+      }
+  
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+  
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save contest data');
+      }
+  
+      const { data } = await response.json();
+      
+      // If this was a new contest, update the URL with the new ID
+      if (!contestId && data?.id) {
+        window.history.pushState({}, '', `/contests/${data.id}/create`);
+      }
+  
+      return data;
+    } catch (error) {
+      console.error(`Error saving ${step} data:`, error);
+      throw error;
+    }
+  };
+  
 
   // Final submission - submit all data
   const handleFinalSubmit = async () => {
