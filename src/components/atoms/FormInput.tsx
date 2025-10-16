@@ -93,6 +93,7 @@ export const FormInput: React.FC<FormInputProps> = ({
   }
 
   // When using without react-hook-form, use Radix Form components
+  // Don't use Form.Control asChild with registration to avoid React 19 ref issues
   return (
     <Form.Field className={cn('flex flex-col items-start gap-2 self-stretch', className)} name={name}>
       {/* Label */}
@@ -108,25 +109,23 @@ export const FormInput: React.FC<FormInputProps> = ({
       </div>
       
       {/* Input/Textarea */}
-      <Form.Control asChild>
-        {multiline ? (
-          <textarea
-            placeholder={placeholder}
-            rows={rows}
-            onFocus={onFocus}
-            {...registration}
-            className={inputClassName}
-          />
-        ) : (
-          <input
-            type={type}
-            placeholder={placeholder}
-            onFocus={onFocus}
-            {...registration}
-            className={inputClassName}
-          />
-        )}
-      </Form.Control>
+      {multiline ? (
+        <textarea
+          placeholder={placeholder}
+          rows={rows}
+          onFocus={onFocus}
+          {...registration}
+          className={inputClassName}
+        />
+      ) : (
+        <input
+          type={type}
+          placeholder={placeholder}
+          onFocus={onFocus}
+          {...registration}
+          className={inputClassName}
+        />
+      )}
       
       {/* Error message */}
       {error && (

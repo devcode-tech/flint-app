@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, memo } from 'react'
 import { Card, CardContent } from '@/components/atoms/Card'
 import { MetricCard } from '@/components/molecules/MetricCard'
 import { TimeRangeTabs } from '@/components/molecules/TimeRangeTabs'

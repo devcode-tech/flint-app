@@ -1,8 +1,6 @@
 'use client'
 
 import React from 'react'
-import * as Form from '@radix-ui/react-form'
-import * as Label from '@radix-ui/react-label'
 import * as Select from '@radix-ui/react-select'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -35,14 +33,12 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   control
 }) => {
   return (
-    <Form.Field className={cn('flex flex-col items-start gap-2 self-stretch', className)} name={name}>
+    <div className={cn('flex flex-col items-start gap-2 self-stretch', className)}>
       {/* Label */}
       <div className="flex items-center gap-1">
-        <Form.Label asChild>
-          <Label.Root className="text-[#141C25] font-inter text-sm font-medium leading-5">
-            {label}
-          </Label.Root>
-        </Form.Label>
+        <label className="text-[#141C25] font-inter text-sm font-medium leading-5">
+          {label}
+        </label>
         {required && (
           <span className="text-red-500 text-sm">*</span>
         )}
@@ -54,22 +50,20 @@ export const FormSelect: React.FC<FormSelectProps> = ({
         control={control}
         render={({ field }) => (
           <Select.Root value={field.value} onValueChange={field.onChange}>
-            <Form.Control asChild>
-              <Select.Trigger
-                className={cn(
-                  'flex px-3 py-2 w-full justify-between items-center rounded border bg-white shadow-sm',
-                  'text-[#141C25] font-inter text-base font-normal leading-6',
-                  'focus:outline-none focus:ring-2 focus:ring-[#005EB8] focus:border-transparent',
-                  'data-[placeholder]:text-[#97A1AF]',
-                  error ? 'border-red-500' : 'border-[#E4E7EC]'
-                )}
-              >
-                <Select.Value placeholder={placeholder} />
-                <Select.Icon asChild>
-                  <ChevronDown className="w-5 h-5 text-[#637083]" />
-                </Select.Icon>
-              </Select.Trigger>
-            </Form.Control>
+            <Select.Trigger
+              className={cn(
+                'flex px-3 py-2 w-full justify-between items-center rounded border bg-white shadow-sm',
+                'text-[#141C25] font-inter text-base font-normal leading-6',
+                'focus:outline-none focus:ring-2 focus:ring-[#005EB8] focus:border-transparent',
+                'data-[placeholder]:text-[#97A1AF]',
+                error ? 'border-red-500' : 'border-[#E4E7EC]'
+              )}
+            >
+              <Select.Value placeholder={placeholder} />
+              <Select.Icon asChild>
+                <ChevronDown className="w-5 h-5 text-[#637083]" />
+              </Select.Icon>
+            </Select.Trigger>
             
             <Select.Portal>
               <Select.Content
@@ -104,10 +98,10 @@ export const FormSelect: React.FC<FormSelectProps> = ({
       
       {/* Error message */}
       {error && (
-        <Form.Message className="text-red-500 text-xs font-normal">
+        <div className="text-red-500 text-xs font-normal">
           {error}
-        </Form.Message>
+        </div>
       )}
-    </Form.Field>
+    </div>
   )
 }

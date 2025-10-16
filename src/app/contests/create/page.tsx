@@ -1,11 +1,6 @@
-import React from 'react'
-import { DashboardLayout } from '@/components/organisms/DashboardLayout'
-import { CreateContestPage } from '@/components/organisms/CreateContestPage'
+import { redirect } from 'next/navigation'
 
 export default function CreateContestPageRoute() {
-  return (
-    <DashboardLayout>
-      <CreateContestPage />
-    </DashboardLayout>
-  )
+  // Redirect to the new full-screen route
+  redirect('/contests/create/new')
 }

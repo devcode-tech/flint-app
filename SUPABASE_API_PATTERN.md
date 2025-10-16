@@ -1,0 +1,432 @@
+# Supabase API Integration Pattern
+
+## Database Schema
+
+### Forms Table
+```sql
+CREATE TABLE forms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  form_title TEXT NOT NULL,
+  form_description TEXT,
+  fields JSONB NOT NULL DEFAULT '[]',
+  containers JSONB NOT NULL DEFAULT '[]',
+  design JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_forms_created_at ON forms(created_at DESC);
+```
+
+### Contests Table
+```sql
+CREATE TABLE contests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  embed_id TEXT UNIQUE NOT NULL, -- AS12FS format for public embedding
+  name TEXT NOT NULL,
+  contest_type TEXT NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  form_id UUID REFERENCES forms(id) ON DELETE SET NULL,
+  actions JSONB NOT NULL,
+  post_capture JSONB NOT NULL,
+  targeting JSONB NOT NULL,
+  status TEXT DEFAULT 'draft', -- draft, active, completed, archived
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_contests_embed_id ON contests(embed_id);
+CREATE INDEX idx_contests_status ON contests(status);
+CREATE INDEX idx_contests_created_at ON contests(created_at DESC);
+
+-- Function to generate embed_id
+CREATE OR REPLACE FUNCTION generate_embed_id()
+RETURNS TEXT AS $$
+DECLARE
+  chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  result TEXT := '';
+  i INTEGER;
+BEGIN
+  FOR i IN 1..6 LOOP
+    result := result || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+  END LOOP;
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to auto-generate embed_id
+CREATE OR REPLACE FUNCTION set_embed_id()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.embed_id IS NULL THEN
+    NEW.embed_id := generate_embed_id();
+    -- Ensure uniqueness
+    WHILE EXISTS (SELECT 1 FROM contests WHERE embed_id = NEW.embed_id) LOOP
+      NEW.embed_id := generate_embed_id();
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER contests_embed_id_trigger
+BEFORE INSERT ON contests
+FOR EACH ROW
+EXECUTE FUNCTION set_embed_id();
+```
+
+## Supabase Client Setup
+
+```typescript
+// src/lib/supabase/client.ts
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Types
+export interface Form {
+  id: string // UUID
+  form_title: string
+  form_description: string
+  fields: any[]
+  containers: any[]
+  design: any
+  created_at: string
+  updated_at: string
+}
+
+export interface Contest {
+  id: string // UUID - for internal operations
+  embed_id: string // AS12FS - for public embedding
+  name: string
+  contest_type: string
+  start_date: string
+  end_date: string
+  form_id: string | null
+  actions: any
+  post_capture: any
+  targeting: any
+  status: 'draft' | 'active' | 'completed' | 'archived'
+  created_at: string
+  updated_at: string
+  form?: Form // Joined data
+}
+```
+
+## API Functions
+
+```typescript
+// src/lib/api/forms.ts
+import { supabase } from '@/lib/supabase/client'
+import type { FormBuilderData } from '@/schemas/contestSchema'
+
+export async function createForm(data: FormBuilderData) {
+  const { data: form, error } = await supabase
+    .from('forms')
+    .insert({
+      form_title: data.formTitle,
+      form_description: data.formDescription,
+      fields: data.fields,
+      containers: data.containers,
+      design: data.design
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return form
+}
+
+export async function updateForm(formId: string, data: FormBuilderData) {
+  const { data: form, error } = await supabase
+    .from('forms')
+    .update({
+      form_title: data.formTitle,
+      form_description: data.formDescription,
+      fields: data.fields,
+      containers: data.containers,
+      design: data.design,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', formId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return form
+}
+
+export async function getForm(formId: string) {
+  const { data: form, error } = await supabase
+    .from('forms')
+    .select('*')
+    .eq('id', formId)
+    .single()
+
+  if (error) throw error
+  return form
+}
+```
+
+```typescript
+// src/lib/api/contests.ts
+import { supabase } from '@/lib/supabase/client'
+import type { CompleteContestData } from '@/schemas/contestSchema'
+
+export async function createContest(data: CompleteContestData, formId: string) {
+  const { data: contest, error } = await supabase
+    .from('contests')
+    .insert({
+      name: data.basicDetails.name,
+      contest_type: data.basicDetails.contestType,
+      start_date: data.basicDetails.startDate,
+      end_date: data.basicDetails.endDate,
+      form_id: formId,
+      actions: data.actions,
+      post_capture: data.postCapture,
+      targeting: data.targeting,
+      status: 'draft'
+      // embed_id will be auto-generated by trigger
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return contest
+}
+
+export async function updateContest(contestId: string, data: CompleteContestData, formId: string) {
+  const { data: contest, error } = await supabase
+    .from('contests')
+    .update({
+      name: data.basicDetails.name,
+      contest_type: data.basicDetails.contestType,
+      start_date: data.basicDetails.startDate,
+      end_date: data.basicDetails.endDate,
+      form_id: formId,
+      actions: data.actions,
+      post_capture: data.postCapture,
+      targeting: data.targeting,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', contestId) // Use UUID for updates
+    .select()
+    .single()
+
+  if (error) throw error
+  return contest
+}
+
+export async function getContest(contestId: string) {
+  const { data: contest, error } = await supabase
+    .from('contests')
+    .select(`
+      *,
+      form:forms(*)
+    `)
+    .eq('id', contestId) // Use UUID for fetching
+    .single()
+
+  if (error) throw error
+  return contest
+}
+
+export async function getContestByEmbedId(embedId: string) {
+  // For public embedding - use embed_id
+  const { data: contest, error } = await supabase
+    .from('contests')
+    .select(`
+      *,
+      form:forms(*)
+    `)
+    .eq('embed_id', embedId)
+    .eq('status', 'active') // Only active contests can be embedded
+    .single()
+
+  if (error) throw error
+  return contest
+}
+
+export async function listContests() {
+  const { data: contests, error } = await supabase
+    .from('contests')
+    .select(`
+      id,
+      embed_id,
+      name,
+      contest_type,
+      start_date,
+      end_date,
+      status,
+      created_at
+    `)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return contests
+}
+```
+
+## Implementation in CreateContestPage
+
+```typescript
+// src/components/organisms/CreateContestPage.tsx
+import { createForm, updateForm } from '@/lib/api/forms'
+import { createContest } from '@/lib/api/contests'
+
+const handleFinalSubmit = async () => {
+  const allData = getValues()
+  
+  try {
+    setIsSubmitting(true)
+    
+    // Step 1: Create Form Schema
+    const form = await createForm(allData.formBuilder)
+    console.log('Form created with ID:', form.id)
+    
+    // Step 2: Create Contest with Form Reference
+    const contest = await createContest(allData, form.id)
+    console.log('Contest created with ID:', contest.id)
+    console.log('Embed ID for sharing:', contest.embed_id)
+    
+    // Success - show embed_id to user
+    alert(`Contest created! Embed ID: ${contest.embed_id}`)
+    router.push(`/contests/${contest.id}`)
+    
+  } catch (error) {
+    console.error('Submission error:', error)
+    alert('Failed to create contest. Please try again.')
+  } finally {
+    setIsSubmitting(false)
+  }
+}
+```
+
+## Implementation in EditContestPage
+
+```typescript
+// src/components/organisms/EditContestPage.tsx
+import { getContest, updateContest } from '@/lib/api/contests'
+import { updateForm } from '@/lib/api/forms'
+
+// Load contest data
+useEffect(() => {
+  const loadContestData = async () => {
+    try {
+      setIsLoading(true)
+      
+      const contest = await getContest(contestId) // Use UUID
+      
+      // Transform to form structure
+      const formData: CompleteContestData = {
+        basicDetails: {
+          name: contest.name,
+          contestType: contest.contest_type,
+          startDate: contest.start_date,
+          endDate: contest.end_date
+        },
+        formBuilder: {
+          formId: contest.form_id,
+          formTitle: contest.form.form_title,
+          formDescription: contest.form.form_description,
+          fields: contest.form.fields,
+          containers: contest.form.containers,
+          design: contest.form.design
+        },
+        actions: contest.actions,
+        postCapture: contest.post_capture,
+        targeting: contest.targeting
+      }
+      
+      reset(formData)
+      setIsLoading(false)
+    } catch (error) {
+      console.error('Error loading contest:', error)
+      setIsLoading(false)
+    }
+  }
+
+  loadContestData()
+}, [contestId, reset])
+
+// Update contest
+const handleFinalSubmit = async () => {
+  const allData = getValues()
+  
+  try {
+    setIsSubmitting(true)
+    
+    // Step 1: Update Form Schema
+    await updateForm(allData.formBuilder.formId!, allData.formBuilder)
+    console.log('Form updated')
+    
+    // Step 2: Update Contest
+    const contest = await updateContest(contestId, allData, allData.formBuilder.formId!)
+    console.log('Contest updated')
+    
+    router.push(`/contests/${contest.id}`)
+    
+  } catch (error) {
+    console.error('Update error:', error)
+    alert('Failed to update contest. Please try again.')
+  } finally {
+    setIsSubmitting(false)
+  }
+}
+```
+
+## Public Embed Page
+
+```typescript
+// src/app/embed/[embedId]/page.tsx
+import { getContestByEmbedId } from '@/lib/api/contests'
+
+interface EmbedPageProps {
+  params: Promise<{ embedId: string }>
+}
+
+export default async function EmbedPage({ params }: EmbedPageProps) {
+  const { embedId } = await params
+  
+  try {
+    const contest = await getContestByEmbedId(embedId)
+    
+    return (
+      <div className="min-h-screen p-4">
+        <h1>{contest.name}</h1>
+        {/* Render form using contest.form data */}
+        <FormRenderer form={contest.form} />
+      </div>
+    )
+  } catch (error) {
+    return <div>Contest not found or inactive</div>
+  }
+}
+```
+
+## Key Points
+
+### UUID (id) - Internal Use
+- ✅ All CRUD operations (create, read, update, delete)
+- ✅ Foreign key relationships
+- ✅ Admin dashboard operations
+- ✅ URL routing in admin panel: `/contests/{uuid}/edit`
+
+### Embed ID (embed_id) - Public Use
+- ✅ Public embedding: `/embed/{AS12FS}`
+- ✅ Sharing with users
+- ✅ Short, memorable, user-friendly
+- ✅ Can be regenerated if needed
+- ❌ NOT used for internal operations
+
+### Benefits
+1. **Security**: UUID not exposed in public embeds
+2. **Flexibility**: Can regenerate embed_id without breaking internal references
+3. **User-friendly**: Short embed codes (AS12FS) vs long UUIDs
+4. **Performance**: Indexed for fast lookups on both id and embed_id
+
+This is the optimal approach! ✅

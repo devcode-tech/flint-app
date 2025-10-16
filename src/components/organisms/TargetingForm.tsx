@@ -1,44 +1,20 @@
 'use client'
 
 import React from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { Control, useFormContext } from 'react-hook-form'
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import FormDropdown from '@/components/atoms/FormDropdown'
-
-const targetingSchema = z.object({
-  audienceSegment: z.string().min(1, 'Audience segment is required'),
-})
-
-type TargetingFormData = z.infer<typeof targetingSchema>
+import type { CompleteContestData } from '@/schemas/contestSchema'
 
 interface TargetingFormProps {
-  onSubmit: (data: TargetingFormData) => void
+  control: Control<CompleteContestData>
+  fieldPrefix: 'targeting'
   className?: string
 }
 
-const TargetingForm: React.FC<TargetingFormProps> = ({ onSubmit, className }) => {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isValid },
-    watch,
-    clearErrors,
-  } = useForm<TargetingFormData>({
-    resolver: zodResolver(targetingSchema),
-    mode: 'onChange',
-    defaultValues: {
-      audienceSegment: '',
-    },
-  })
-
-  const watchedValues = watch()
-
-  const handleFormSubmit = (data: TargetingFormData) => {
-    onSubmit(data)
-  }
+const TargetingForm: React.FC<TargetingFormProps> = ({ control, fieldPrefix, className }) => {
+  const { formState: { errors } } = useFormContext<CompleteContestData>() || { formState: { errors: {} } }
 
   const handleCreateNewSegment = () => {
     // Handle create new segment functionality
@@ -56,22 +32,17 @@ const TargetingForm: React.FC<TargetingFormProps> = ({ onSubmit, className }) =>
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
-      <div className="flex flex-col gap-2 mb-4">
-        <h2 className="text-[#141C25] font-inter text-xl font-semibold leading-8 tracking-[-0.4px]">
+      <div className="flex flex-col gap-2 mb-6">
+        <h2 className="text-[#141C25] font-inter text-lg font-semibold leading-7">
           Targeting
         </h2>
-        <p className="text-[#344051] font-inter text-sm font-normal leading-5 capitalize">
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit
+        <p className="text-[#637083] font-inter text-sm font-normal leading-5">
+          Select the audience segment for your contest
         </p>
-        
-        {/* Divider */}
-        <div className="flex h-0 justify-center items-center self-stretch mt-2">
-          <div className="w-full h-px bg-[#E4E7EC]"></div>
-        </div>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col flex-1" noValidate>
+      <div className="flex flex-col flex-1">
         <div className="flex flex-col gap-2 flex-1">
           {/* Input Field Header */}
           <div className="flex justify-between items-start self-stretch">
@@ -98,23 +69,17 @@ const TargetingForm: React.FC<TargetingFormProps> = ({ onSubmit, className }) =>
           {/* Dropdown Input */}
           <div className="flex flex-col gap-2">
             <FormDropdown
-              name="audienceSegment"
+              name={`${fieldPrefix}.audienceSegment`}
               control={control}
               label=""
               placeholder="Smart Audience Segment"
               options={audienceSegmentOptions}
-              error={errors.audienceSegment?.message}
-              onFocus={() => clearErrors('audienceSegment')}
+              error={errors.targeting?.audienceSegment?.message}
               required
             />
           </div>
         </div>
-
-        {/* Submit Button - Hidden as navigation is handled by parent */}
-        <button type="submit" className="hidden">
-          Submit
-        </button>
-      </form>
+      </div>
     </div>
   )
 }

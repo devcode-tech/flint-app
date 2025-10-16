@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { Search, Calendar, Plus } from 'lucide-react'
 import { Tabs } from '@/components/molecules/Tabs'
@@ -9,11 +9,11 @@ import { Pagination } from '@/components/molecules/Pagination'
 import { cn } from '@/lib/utils'
 import type { Contest, ContestFilters } from '@/types/contest'
 
-// Mock data
+// Mock data - using deterministic status to avoid hydration mismatch
 const mockContests: Contest[] = Array.from({ length: 50 }, (_, i) => ({
   id: `AR-24612474-${53 + i}`,
   name: `AR-24612474-${53 + i}`,
-  status: Math.random() > 0.5 ? 'active' : 'inactive',
+  status: i % 2 === 0 ? 'active' : 'inactive',
   createdDate: '03/25/24',
   impression: 10000,
   conversion: 9000,
@@ -36,41 +36,47 @@ export const ContestListing: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const contestsPerPage = 10
 
-  // Filter contests based on current tab and search
-  const filteredContests = mockContests.filter(contest => {
-    const matchesTab = filters.tab === 'active' ? contest.status === 'active' : true
-    const matchesSearch = contest.name.toLowerCase().includes(filters.search.toLowerCase())
-    return matchesTab && matchesSearch
-  })
+  // Memoize filtered contests to avoid recalculation on every render
+  const filteredContests = useMemo(() => {
+    return mockContests.filter(contest => {
+      const matchesTab = filters.tab === 'active' ? contest.status === 'active' : true
+      const matchesSearch = contest.name.toLowerCase().includes(filters.search.toLowerCase())
+      return matchesTab && matchesSearch
+    })
+  }, [filters.tab, filters.search])
 
-  // Paginate contests
-  const totalPages = Math.ceil(filteredContests.length / contestsPerPage)
-  const paginatedContests = filteredContests.slice(
-    (currentPage - 1) * contestsPerPage,
-    currentPage * contestsPerPage
-  )
+  // Memoize pagination calculations
+  const { totalPages, paginatedContests } = useMemo(() => {
+    const total = Math.ceil(filteredContests.length / contestsPerPage)
+    const paginated = filteredContests.slice(
+      (currentPage - 1) * contestsPerPage,
+      currentPage * contestsPerPage
+    )
+    return { totalPages: total, paginatedContests: paginated }
+  }, [filteredContests, currentPage, contestsPerPage])
 
-  const handleTabChange = (tabId: string) => {
+  // Memoize callbacks to prevent unnecessary re-renders
+  const handleTabChange = useCallback((tabId: string) => {
     setFilters(prev => ({ ...prev, tab: tabId as ContestFilters['tab'] }))
     setCurrentPage(1)
-  }
+  }, [])
 
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setFilters(prev => ({ ...prev, search: value }))
     setCurrentPage(1)
-  }
+  }, [])
 
-  const handleStatusToggle = (contestId: string, status: boolean) => {
+  const handleStatusToggle = useCallback((contestId: string, status: boolean) => {
     console.log(`Toggle contest ${contestId} to ${status ? 'active' : 'inactive'}`)
-  }
+  }, [])
 
-  const handleView = (contestId: string) => {
+  const handleView = useCallback((contestId: string) => {
     console.log(`View contest ${contestId}`)
-  }
+  }, [])
 
-  const handleAction = (contestId: string, action: string) => {
+  const handleAction = useCallback((contestId: string, action: string) => {
     console.log(`Action ${action} on contest ${contestId}`)
-  }
+  }, [])
 
   return (
     <div className="flex flex-col h-full p-6 lg:p-8 gap-6">

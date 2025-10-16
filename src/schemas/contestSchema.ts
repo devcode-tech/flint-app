@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { FormFieldData as FormBuilderFieldData, FormDesign, LayoutContainer } from '@devcode-tech/form-builder'
 
 // Basic Details Schema
 export const basicDetailsSchema = z.object({
@@ -35,91 +36,40 @@ export const basicDetailsSchema = z.object({
   path: ['endDate']
 })
 
-// Form Field Schema
-export const formFieldSchema = z.object({
-  id: z.string(),
-  type: z.enum(['text', 'email', 'phone', 'select', 'textarea']),
-  label: z
-    .string()
-    .min(1, 'Field label is required')
-    .max(50, 'Field label must be less than 50 characters'),
-  placeholder: z
-    .string()
-    .max(100, 'Placeholder must be less than 100 characters'),
-  required: z.boolean(),
-  options: z.array(z.string()).optional()
+// Form Builder Schema - matches the actual ContestFormBuilder implementation
+export const formBuilderSchema = z.object({
+  formId: z.string().optional(),
+  formTitle: z.string().default('Contest Entry Form'),
+  formDescription: z.string().default(''),
+  fields: z.array(z.any()).default([]), // FormFieldData from form-builder
+  containers: z.array(z.any()).default([]), // LayoutContainer from form-builder
+  design: z.any().default({}) // FormDesign from form-builder
 })
 
-// Create Form Schema
-export const createFormSchema = z.object({
-  formFields: z
-    .array(formFieldSchema)
-    .min(1, 'At least one form field is required')
-    .max(20, 'Maximum 20 form fields allowed')
-})
-
-// Actions Schema
+// Actions Schema - matches the actual ActionsForm implementation
 export const actionsSchema = z.object({
-  redirectUrl: z
-    .string()
-    .url('Please enter a valid URL')
-    .optional()
-    .or(z.literal('')),
-  
-  emailNotifications: z.boolean(),
-  
-  autoResponder: z.object({
-    enabled: z.boolean(),
-    subject: z.string().optional(),
-    message: z.string().optional()
-  }).optional(),
-  
-  integrations: z.array(z.object({
-    type: z.enum(['webhook', 'email', 'zapier']),
-    url: z.string().url('Please enter a valid URL'),
-    enabled: z.boolean()
-  })).optional()
+  rewardType: z.string().min(1, 'Reward type is required'),
+  chooseReward: z.string().min(1, 'Choose reward is required')
 })
 
-// Post Capture Schema
+// Post Capture Schema - matches the actual PostCaptureForm implementation
 export const postCaptureSchema = z.object({
-  thankYouMessage: z
-    .string()
-    .min(1, 'Thank you message is required')
-    .max(500, 'Message must be less than 500 characters'),
-  
-  showSocialShare: z.boolean(),
-  
-  collectAdditionalData: z.boolean(),
-  
-  customCss: z.string().optional()
+  behaviour: z.string().min(1, 'Behaviour is required'),
+  autoclose: z.string().min(1, 'Autoclose is required'),
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().min(1, 'Description is required'),
+  url: z.string().url('Please enter a valid URL').min(1, 'URL is required')
 })
 
-// Targeting Schema
+// Targeting Schema - matches the actual TargetingForm implementation
 export const targetingSchema = z.object({
-  countries: z.array(z.string()).optional(),
-  
-  ageRange: z.object({
-    min: z.number().min(13, 'Minimum age is 13').max(100),
-    max: z.number().min(13).max(100, 'Maximum age is 100')
-  }).optional(),
-  
-  interests: z.array(z.string()).optional(),
-  
-  deviceTypes: z.array(z.enum(['desktop', 'mobile', 'tablet'])).optional(),
-  
-  schedule: z.object({
-    enabled: z.boolean(),
-    startTime: z.string().optional(),
-    endTime: z.string().optional(),
-    timezone: z.string().optional()
-  }).optional()
+  audienceSegment: z.string().min(1, 'Audience segment is required')
 })
 
-// Complete Contest Schema
+// Complete Contest Schema - all steps combined
 export const completeContestSchema = z.object({
   basicDetails: basicDetailsSchema,
-  createForm: createFormSchema,
+  formBuilder: formBuilderSchema,
   actions: actionsSchema,
   postCapture: postCaptureSchema,
   targeting: targetingSchema
@@ -127,12 +77,15 @@ export const completeContestSchema = z.object({
 
 // Type exports
 export type BasicDetailsFormData = z.infer<typeof basicDetailsSchema>
-export type FormFieldData = z.infer<typeof formFieldSchema>
-export type CreateFormData = z.infer<typeof createFormSchema>
+export type FormBuilderData = z.infer<typeof formBuilderSchema>
 export type ActionsData = z.infer<typeof actionsSchema>
 export type PostCaptureData = z.infer<typeof postCaptureSchema>
 export type TargetingData = z.infer<typeof targetingSchema>
 export type CompleteContestData = z.infer<typeof completeContestSchema>
+
+// Legacy type exports for backward compatibility
+export type FormFieldData = FormBuilderFieldData
+export type CreateFormData = z.infer<typeof formBuilderSchema>
 
 // Contest type options
 export const contestTypeOptions: Array<{ value: string; label: string }> = [

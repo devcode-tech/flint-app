@@ -1,103 +1,82 @@
 'use client'
 
 import React from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as Form from '@radix-ui/react-form'
+import { Control, useFormContext } from 'react-hook-form'
 import { FormInput } from '@/components/atoms/FormInput'
 import { FormSelect } from '@/components/atoms/FormSelect'
 import { cn } from '@/lib/utils'
-import { basicDetailsSchema, contestTypeOptions, type BasicDetailsFormData } from '@/schemas/contestSchema'
+import { contestTypeOptions, type CompleteContestData } from '@/schemas/contestSchema'
 
 interface BasicDetailsFormProps {
-  onSubmit: (data: BasicDetailsFormData) => void
-  defaultValues?: Partial<BasicDetailsFormData>
+  control: Control<CompleteContestData>
+  fieldPrefix: 'basicDetails'
   className?: string
 }
 
 export const BasicDetailsForm: React.FC<BasicDetailsFormProps> = ({
-  onSubmit,
-  defaultValues,
+  control,
+  fieldPrefix,
   className
 }) => {
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors, isSubmitting }
-  } = useForm<BasicDetailsFormData>({
-    resolver: zodResolver(basicDetailsSchema),
-    defaultValues: {
-      name: '',
-      contestType: '',
-      startDate: '',
-      endDate: '',
-      ...defaultValues
-    }
-  })
+  const { formState: { errors } } = useFormContext<CompleteContestData>() || { formState: { errors: {} } }
 
   return (
-    <div className={cn('h-full flex flex-col bg-white rounded-lg border border-[#E4E7EC] overflow-hidden', className)}>
+    <div className={cn('h-full flex flex-col overflow-auto', className)}>
       {/* Header */}
-      <div className="flex-shrink-0 p-4 lg:p-6 border-b border-[#E4E7EC]">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-[#141C25] font-inter text-lg lg:text-xl font-semibold">
-            Basic Details
-          </h2>
-          <p className="text-[#344051] font-inter text-sm leading-5">
-            Enter the basic information for your contest
-          </p>
-        </div>
+      <div className="flex flex-col gap-2 mb-6">
+        <h2 className="text-[#141C25] font-inter text-lg font-semibold leading-7">
+          Basic Details
+        </h2>
+        <p className="text-[#637083] font-inter text-sm font-normal leading-5">
+          Enter the basic information for your contest
+        </p>
       </div>
         
         {/* Form */}
-        <div className="flex-1 overflow-auto p-4 lg:p-6">
-          <Form.Root className="flex flex-col gap-4 lg:gap-6 h-full" onSubmit={handleSubmit(onSubmit)}>
+        <div className="flex-1">
+          <div className="flex flex-col gap-6">
           {/* Contest Name */}
           <FormInput
-            name="name"
+            name={`${fieldPrefix}.name`}
+            control={control}
             label="Name of the Contest"
             placeholder="Enter contest name"
             required
-            registration={register('name')}
-            error={errors.name?.message}
+            error={errors.basicDetails?.name?.message}
           />
           
           {/* Contest Type */}
           <FormSelect
-            name="contestType"
+            name={`${fieldPrefix}.contestType`}
             label="Contest Type"
             placeholder="Select contest type"
             options={contestTypeOptions}
             required
             control={control}
-            error={errors.contestType?.message}
+            error={errors.basicDetails?.contestType?.message}
           />
           
           {/* Contest Start Date */}
           <FormInput
-            name="startDate"
+            name={`${fieldPrefix}.startDate`}
+            control={control}
             label="Contest Start Date"
             type="date"
             required
-            registration={register('startDate')}
-            error={errors.startDate?.message}
+            error={errors.basicDetails?.startDate?.message}
           />
           
           {/* Contest End Date */}
           <FormInput
-            name="endDate"
+            name={`${fieldPrefix}.endDate`}
+            control={control}
             label="Contest End Date"
             type="date"
             required
-            registration={register('endDate')}
-            error={errors.endDate?.message}
+            error={errors.basicDetails?.endDate?.message}
           />
-          
-            {/* Submit button - hidden, form will be submitted by parent */}
-            <button type="submit" className="hidden" disabled={isSubmitting} />
-          </Form.Root>
         </div>
+      </div>
     </div>
   )
 }
