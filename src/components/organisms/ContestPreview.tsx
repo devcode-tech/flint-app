@@ -12,11 +12,6 @@ interface ContestPreviewProps {
 }
 
 export const ContestPreview = memo<ContestPreviewProps>(({ className, formData, currentStep = 0 }) => {
-  // Hide preview on form builder step (step 1) as it has its own preview
-  if (currentStep === 1) {
-    return null
-  }
-
   // Show form preview if form has been created
   const hasFormFields = formData && formData.fields && formData.fields.length > 0
 

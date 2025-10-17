@@ -9,12 +9,13 @@ import { Breadcrumb } from '@/components/molecules/Breadcrumb'
 import { Stepper } from '@/components/molecules/Stepper'
 import { BasicDetailsForm } from '@/components/organisms/BasicDetailsForm'
 import { ContestPreview } from '@/components/organisms/ContestPreview'
+import { PostCapturePreview } from '@/components/organisms/PostCapturePreview'
 import { cn } from '@/lib/utils'
 import { completeContestSchema, type CompleteContestData } from '@/schemas/contestSchema'
 import { debounce } from '@/lib/utils/debounce'
-import { supabase } from '@/lib/supabase/client'
 import { generateFormId } from '@devcode-tech/form-builder'
 import { useFormSchema } from '@/hooks/useFormSchema'
+import { useContestApi } from '@/hooks/useContestApi'
 
 // Lazy load heavy components
 const ContestFormBuilder = lazy(() => import('@/components/organisms/ContestFormBuilder').then(mod => ({ default: mod.ContestFormBuilder })))
@@ -43,7 +44,8 @@ const steps: ContestFormStep[] = [
   { id: 'create-form', title: 'Create Form' },
   { id: 'actions', title: 'Actions' },
   { id: 'post-capture', title: 'Post Capture' },
-  { id: 'targeting', title: 'Targeting' }
+  { id: 'targeting', title: 'Targeting' },
+  { id: 'share', title: 'Share' }
 ]
 
 interface CreateContestPageProps {
@@ -59,7 +61,9 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
   const [isSavingForm, setIsSavingForm] = useState(false)
   const [isLoadingForm, setIsLoadingForm] = useState(false)
   const [isLoadingContest, setIsLoadingContest] = useState(!!contestId)
-  const { fetchFormSchemaById } = useFormSchema()
+  const [contestName, setContestName] = useState<string>('') // Store contest name for header
+  const { fetchFormSchemaById, createFormSchema, updateFormSchema } = useFormSchema()
+  const { updateContest, fetchContest } = useContestApi()
 
   // Single useForm instance for all contest data
   const form = useForm<CompleteContestData>({
@@ -101,6 +105,12 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
 
   // Watch form builder data for preview
   const formBuilderData = watch('formBuilder')
+  
+  // Watch post capture data for preview
+  const postCaptureData = watch('postCapture')
+  
+  // Watch contest name for header
+  const watchedContestName = watch('basicDetails.name')
 
   // Load contest data if contestId is provided
   useEffect(() => {
@@ -110,17 +120,9 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
       try {
         setIsLoadingContest(true);
         console.log('Loading contest data for:', contestId);
-        const { data: contestData, error } = await supabase
-          .from('contests')
-          .select('*')
-          .eq('id', contestId)
-          .single();
-    
-        if (error) {
-          console.error('Error loading contest:', error);
-          alert('Failed to load contest data');
-          return;
-        }
+        
+        // Fetch contest data using API hook
+        const contestData = await fetchContest(contestId);
     
         if (contestData) {
           console.log('Contest data loaded:', contestData);
@@ -136,6 +138,9 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
           setValue('basicDetails.contestType', contestData.contest_type || '');
           setValue('basicDetails.startDate', formatDateForInput(contestData.start_date));
           setValue('basicDetails.endDate', formatDateForInput(contestData.end_date));
+          
+          // Store contest name for header
+          setContestName(contestData.name || 'Untitled Contest');
     
           // Actions
           setValue('actions.rewardType', contestData.reward_type || '');
@@ -168,7 +173,7 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
     };
 
     loadContestData()
-  }, [contestId, setValue])
+  }, [contestId, setValue, fetchContest])
 
   // Debounced form builder update for better performance
   const debouncedSetFormBuilder = useMemo(
@@ -232,69 +237,40 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
 
       // Check if we're updating an existing form schema
       if (savedDbFormId) {
-        // UPDATE existing form schema
+        // UPDATE existing form schema using API hook
         console.log('Updating existing form schema:', savedDbFormId)
         
-        const { data, error } = await supabase
-          .from('form_schemas')
-          .update({
-            title: formTitle,
-            description: formDescription,
-            schema: schema,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', savedDbFormId)
-          .select()
-          .single()
+        const data = await updateFormSchema(savedDbFormId, {
+          title: formTitle,
+          description: formDescription,
+          fields: fields,
+          containers: containers,
+          design: design
+        })
 
-        if (error) {
-          console.error('Error updating form:', error)
-          alert(`Error updating form: ${error.message}`)
-          return null
-        }
-
-        dbFormId = data.id
         embedId = data.form_id
+        dbFormId = data.id
         console.log('Form updated successfully:', data)
       } else {
-        // CREATE new form schema
+        // CREATE new form schema using API hook
         embedId = generateFormId()
         
-        const { data, error } = await supabase
-          .from('form_schemas')
-          .insert([
-            {
-              title: formTitle,
-              description: formDescription,
-              schema: schema,
-              form_id: embedId,
-              contest_id: contestId, // Link to contest
-            },
-          ])
-          .select()
-          .single()
-
-        if (error) {
-          console.error('Error saving form:', error)
-          alert(`Error saving form: ${error.message}`)
-          return null
-        }
+        const data = await createFormSchema({
+          form_id: embedId,
+          contest_id: contestId,
+          title: formTitle,
+          description: formDescription,
+          fields: fields,
+          containers: containers,
+          design: design
+        })
 
         dbFormId = data.id
         console.log('Form created successfully:', data)
 
-        // Update contest record with form_schema_id
+        // Update contest record with form_schema_id using API hook
         if (contestId) {
-          const { error: contestError } = await supabase
-            .from('contests')
-            .update({ form_schema_id: dbFormId })
-            .eq('id', contestId)
-
-          if (contestError) {
-            console.error('Error linking form to contest:', contestError)
-          } else {
-            console.log('Contest linked to form schema successfully')
-          }
+          await updateContest(contestId, { form_schema_id: dbFormId })
         }
       }
 
@@ -379,7 +355,7 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
           }
           break;
   
-        case 4: // Targeting - Final step
+        case 4: // Targeting
           isValid = await form.trigger('targeting');
           if (isValid) {
             const targeting = getValues('targeting');
@@ -390,9 +366,13 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
             
             if (savedContest) {
               console.log('Targeting validated and saved:', targeting);
-              await handleFinalSubmit();
+              setCurrentStep(5); // Move to Share step
             }
           }
+          break;
+
+        case 5: // Share - Final step
+          await handleFinalSubmit();
           break;
       }
     } catch (error) {
@@ -448,25 +428,15 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
   };
   
 
-  // Final submission - submit all data
+  // Final submission - redirect to contests list
   const handleFinalSubmit = async () => {
     const allData = getValues()
     console.log('Contest creation completed!')
     console.log('All form data:', allData)
 
-    // TODO: Submit to backend
-    // 1. Submit form schema separately
-    // await submitFormSchema(allData.formBuilder)
-    
-    // 2. Submit other contest data
-    // await submitContestData({
-    //   basicDetails: allData.basicDetails,
-    //   actions: allData.actions,
-    //   postCapture: allData.postCapture,
-    //   targeting: allData.targeting
-    // })
-
-    setCurrentStep(5)
+    // All data has been saved incrementally at each step
+    // Redirect to contests list
+    router.push('/contests')
   }
 
   const handlePrevious = async () => {
@@ -522,6 +492,11 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
               <div className="min-w-0 overflow-hidden">
                 <Breadcrumb items={breadcrumbItems} />
               </div>
+              {(contestName || watchedContestName) && (
+                <span className="text-sm text-[#637083] font-medium truncate">
+                  ({contestName || watchedContestName})
+                </span>
+              )}
             </div>
             
             {/* Action Buttons - shown on mobile in top row */}
@@ -549,7 +524,7 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
                     : "bg-[#005EB8] hover:bg-[#004A94]"
                 )}
               >
-                {isSavingForm ? 'Saving...' : currentStep === 4 ? 'Complete Contest' : currentStep === 5 ? 'Launch Contest' : 'Next Step'}
+                {isSavingForm ? 'Saving...' : currentStep === 5 ? 'View Contests' : currentStep === 4 ? 'Finish' : 'Next Step'}
               </button>
             </div>
           </div>
@@ -678,50 +653,86 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
               </div>
             )}
             
-            {/* Completion Summary - Show after all steps are completed */}
+            {/* Step 6: Share - Show embed code */}
             {currentStep === 5 && (
-              <div className="h-full flex flex-col items-center justify-center bg-gray-50 rounded-lg p-6">
-                <div className="text-[#005EB8] text-2xl font-semibold mb-4">
-                  🎉 Contest Created Successfully!
-                </div>
-                <div className="text-[#637083] text-lg font-medium mb-2">
-                  Your contest has been created and is ready to launch
-                </div>
-                <div className="text-[#97A1AF] text-sm text-center mb-6">
-                  Review the summary below or navigate back to make any changes
-                </div>
-                {/* Show all collected data */}
-                <div className="w-full max-w-2xl space-y-4">
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Basic Details:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('basicDetails'), null, 2)}
-                    </pre>
+              <div ref={formRef} className="h-full flex flex-col">
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-[#141C25]">
+                      🎉 Contest Created Successfully!
+                    </h2>
+                    <p className="text-sm text-[#637083] mt-1">
+                      Your contest has been created and is ready to share
+                    </p>
                   </div>
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Form Builder:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('formBuilder'), null, 2)}
-                    </pre>
-                  </div>
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Actions:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('actions'), null, 2)}
-                    </pre>
-                  </div>
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Post Capture:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('postCapture'), null, 2)}
-                    </pre>
-                  </div>
-                  <div className="p-4 bg-white rounded-lg border">
-                    <h4 className="text-sm font-medium text-[#344051] mb-2">Targeting:</h4>
-                    <pre className="text-xs text-[#637083] overflow-auto max-h-32">
-                      {JSON.stringify(getValues('targeting'), null, 2)}
-                    </pre>
-                  </div>
+                  
+                  {savedFormId ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="text-base font-semibold text-green-900 mb-1">
+                            Share Your Contest Form
+                          </h3>
+                          <p className="text-xs text-green-700">
+                            Use the embed code below to integrate your contest form:
+                          </p>
+                        </div>
+                        
+                        <div className="bg-white border border-green-300 rounded-lg p-3 space-y-3">
+                          {/* Embed ID Only */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-medium text-gray-700">Embed ID</label>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(savedFormId)
+                                  alert('Embed ID copied to clipboard!')
+                                }}
+                                className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-medium"
+                              >
+                                Copy ID
+                              </button>
+                            </div>
+                            <code className="block text-xs font-mono bg-gray-50 p-2 rounded border border-gray-200 text-gray-700 break-all">
+                              {savedFormId}
+                            </code>
+                          </div>
+                          
+                          {/* Full Embed Code */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-medium text-gray-700">Full Embed Code</label>
+                              <button
+                                onClick={() => {
+                                  const embedCode = `<script src="flint-form.js"></script>\n<div id="${savedFormId}"></div>`
+                                  navigator.clipboard.writeText(embedCode)
+                                  alert('Embed code copied to clipboard!')
+                                }}
+                                className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-medium"
+                              >
+                                Copy Code
+                              </button>
+                            </div>
+                            <code className="block text-xs font-mono bg-gray-50 p-2 rounded border border-gray-200 text-gray-700 whitespace-pre overflow-x-auto">
+                              {`<script src="flint-form.js"></script>\n<div id="${savedFormId}"></div>`}
+                            </code>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                          <p className="text-xs text-blue-800">
+                            <strong>💡 Tip:</strong> Copy the full embed code and paste it into your website.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-xs text-yellow-800">
+                        No form has been created for this contest yet. Please go back to the "Create Form" step to create one.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -730,7 +741,20 @@ export const CreateContestPage: React.FC<CreateContestPageProps> = ({ contestId 
           {/* Preview Section - Hidden on form builder step (step 1) */}
           {currentStep !== 1 && (
             <div className="lg:flex-[0.45] min-h-0">
-              <ContestPreview formData={formBuilderData} currentStep={currentStep} />
+              {currentStep === 3 ? (
+                // Show Post Capture Preview on step 3
+                <PostCapturePreview 
+                  title={postCaptureData.title}
+                  description={postCaptureData.description}
+                  url={postCaptureData.url}
+                />
+              ) : currentStep === 5 ? (
+                // Show form preview on Share step if form exists
+                <ContestPreview formData={formBuilderData} currentStep={currentStep} />
+              ) : (
+                // Show regular contest preview on other steps
+                <ContestPreview formData={formBuilderData} currentStep={currentStep} />
+              )}
             </div>
           )}
         </div>

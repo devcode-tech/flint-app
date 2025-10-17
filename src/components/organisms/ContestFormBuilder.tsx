@@ -28,7 +28,7 @@ export const ContestFormBuilder: React.FC<ContestFormBuilderProps> = ({
     try {
       // Structure the data for contest form
       const contestFormData: FormBuilderData = {
-        formId: defaultValues?.formId || contestId || `form_${Date.now()}`,
+        formId: defaultValues?.formId || `form_${Date.now()}`,
         formTitle: formData.title || 'Contest Entry Form',
         formDescription: formData.description || '',
         fields: formData.fields || [],
@@ -64,7 +64,7 @@ export const ContestFormBuilder: React.FC<ContestFormBuilderProps> = ({
       console.error('Error saving form:', error)
       return null
     }
-  }, [onSubmit, defaultValues, onDataChange, isEditMode, contestId])
+  }, [onSubmit, defaultValues, onDataChange, isEditMode])
 
   // Handle form update - called when editing existing form
   const handleUpdate = useCallback(async (formId: string, formData: any): Promise<boolean> => {
@@ -122,7 +122,7 @@ export const ContestFormBuilder: React.FC<ContestFormBuilderProps> = ({
   return (
     <div className="h-full w-full">
       <FormBuilder 
-        initialFormId={isEditMode ? (contestId || defaultValues?.formId) : defaultValues?.formId}
+        initialFormId={defaultValues?.formId}
         onSave={handleSave}
         onUpdate={handleUpdate}
         onLoad={handleLoad}

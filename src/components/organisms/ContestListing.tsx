@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { Search, Calendar, Plus } from 'lucide-react'
 import { Tabs } from '@/components/molecules/Tabs'
@@ -9,43 +9,54 @@ import { Pagination } from '@/components/molecules/Pagination'
 import { CreateContestModal } from '@/components/organisms/CreateContestModal'
 import { cn } from '@/lib/utils'
 import type { Contest, ContestFilters } from '@/types/contest'
-
-// Mock data - using deterministic status to avoid hydration mismatch
-const mockContests: Contest[] = Array.from({ length: 50 }, (_, i) => ({
-  id: `AR-24612474-${53 + i}`,
-  name: `AR-24612474-${53 + i}`,
-  status: i % 2 === 0 ? 'active' : 'inactive',
-  createdDate: '03/25/24',
-  impression: 10000,
-  conversion: 9000,
-  conversionRate: 90
-}))
-
-const tabs = [
-  { id: 'active', label: 'Active', count: 32 },
-  { id: 'completed', label: 'Completed', count: 18 },
-  { id: 'drafts', label: 'Drafts', count: 5 },
-  { id: 'scheduled', label: 'Scheduled', count: 3 }
-]
+import { useContestApi } from '@/hooks/useContestApi'
 
 export const ContestListing: React.FC = () => {
   const [filters, setFilters] = useState<ContestFilters>({
-    tab: 'active',
+    tab: 'all',
     search: '',
     dateRange: 'Last Month'
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [contests, setContests] = useState<Contest[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const { fetchContests, updateContest } = useContestApi()
   const contestsPerPage = 10
+
+  // Calculate tab counts dynamically
+  const tabs = useMemo(() => [
+    { id: 'all', label: 'All', count: contests.length },
+    { id: 'active', label: 'Active', count: contests.filter(c => c.status === 'active').length },
+    { id: 'draft', label: 'Drafts', count: contests.filter(c => c.status === 'draft').length },
+    { id: 'completed', label: 'Completed', count: contests.filter(c => c.status === 'completed').length }
+  ], [contests])
+
+  // Load contests on mount
+  useEffect(() => {
+    const loadContests = async () => {
+      try {
+        setIsLoading(true)
+        const data = await fetchContests()
+        setContests(data)
+      } catch (error) {
+        console.error('Error loading contests:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadContests()
+  }, [])
 
   // Memoize filtered contests to avoid recalculation on every render
   const filteredContests = useMemo(() => {
-    return mockContests.filter(contest => {
-      const matchesTab = filters.tab === 'active' ? contest.status === 'active' : true
+    return contests.filter(contest => {
+      const matchesTab = filters.tab === 'all' ? true : contest.status === filters.tab
       const matchesSearch = contest.name.toLowerCase().includes(filters.search.toLowerCase())
       return matchesTab && matchesSearch
     })
-  }, [filters.tab, filters.search])
+  }, [contests, filters.tab, filters.search])
 
   // Memoize pagination calculations
   const { totalPages, paginatedContests } = useMemo(() => {
@@ -68,9 +79,21 @@ export const ContestListing: React.FC = () => {
     setCurrentPage(1)
   }, [])
 
-  const handleStatusToggle = useCallback((contestId: string, status: boolean) => {
-    console.log(`Toggle contest ${contestId} to ${status ? 'active' : 'inactive'}`)
-  }, [])
+  const handleStatusToggle = useCallback(async (contestId: string, status: boolean) => {
+    try {
+      await updateContest(contestId, { status: status ? 'active' : 'inactive' })
+      
+      // Update local state
+      setContests(prev => prev.map(contest => 
+        contest.id === contestId 
+          ? { ...contest, status: status ? 'active' : 'inactive' }
+          : contest
+      ))
+    } catch (error) {
+      console.error('Error updating contest status:', error)
+      alert('Failed to update contest status')
+    }
+  }, [updateContest])
 
   const handleView = useCallback((contestId: string) => {
     console.log(`View contest ${contestId}`)
@@ -106,6 +129,22 @@ export const ContestListing: React.FC = () => {
 
       {/* Table Container */}
       <div className="flex flex-col flex-1 gap-6 min-h-0">
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 border-4 border-[#E4E7EC] border-t-[#005EB8] rounded-full animate-spin" />
+              <p className="text-sm text-[#637083]">Loading contests...</p>
+            </div>
+          </div>
+        ) : contests.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-lg text-[#637083] mb-2">No contests found</p>
+              <p className="text-sm text-[#97A1AF]">Create your first contest to get started</p>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Filters Header */}
         <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center p-4 bg-[#F9FAFB] rounded-xl border border-[#E4E7EC]">
           {/* Search Input */}
@@ -156,6 +195,8 @@ export const ContestListing: React.FC = () => {
           totalPages={totalPages}
           onPageChange={setCurrentPage}
         />
+          </>
+        )}
       </div>
 
       {/* Create Contest Modal */}

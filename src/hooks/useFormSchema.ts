@@ -126,10 +126,112 @@ export function useFormSchema() {
     }
   }, [])
 
+  /**
+   * Create a new form schema
+   */
+  const createFormSchema = useCallback(async (formData: {
+    form_id: string
+    contest_id?: string
+    title: string
+    description: string
+    fields: FormFieldData[]
+    containers: LayoutContainer[]
+    design: FormDesign
+  }) => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const { data, error: createError } = await supabase
+        .from('form_schemas')
+        .insert([{
+          form_id: formData.form_id,
+          contest_id: formData.contest_id,
+          title: formData.title,
+          description: formData.description,
+          schema: {
+            title: formData.title,
+            description: formData.description,
+            fields: formData.fields,
+            containers: formData.containers,
+            design: formData.design
+          }
+        }])
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('Error creating form schema:', createError)
+        setError(createError.message)
+        throw createError
+      }
+
+      return data
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      console.error('Error creating form schema:', err)
+      setError(errorMessage)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  /**
+   * Update an existing form schema
+   */
+  const updateFormSchema = useCallback(async (id: string, formData: {
+    title: string
+    description: string
+    fields: FormFieldData[]
+    containers: LayoutContainer[]
+    design: FormDesign
+  }) => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const { data, error: updateError } = await supabase
+        .from('form_schemas')
+        .update({
+          title: formData.title,
+          description: formData.description,
+          schema: {
+            title: formData.title,
+            description: formData.description,
+            fields: formData.fields,
+            containers: formData.containers,
+            design: formData.design
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('Error updating form schema:', updateError)
+        setError(updateError.message)
+        throw updateError
+      }
+
+      return data
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      console.error('Error updating form schema:', err)
+      setError(errorMessage)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   return {
     loading,
     error,
     fetchFormSchemaById,
-    fetchFormSchemaByEmbedId
+    fetchFormSchemaByEmbedId,
+    createFormSchema,
+    updateFormSchema
   }
 }

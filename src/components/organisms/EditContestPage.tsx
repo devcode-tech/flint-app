@@ -9,12 +9,13 @@ import { Breadcrumb } from '@/components/molecules/Breadcrumb'
 import { Stepper } from '@/components/molecules/Stepper'
 import { BasicDetailsForm } from '@/components/organisms/BasicDetailsForm'
 import { ContestPreview } from '@/components/organisms/ContestPreview'
+import { PostCapturePreview } from '@/components/organisms/PostCapturePreview'
 import { cn } from '@/lib/utils'
 import { completeContestSchema, type CompleteContestData } from '@/schemas/contestSchema'
 import { debounce } from '@/lib/utils/debounce'
-import { supabase } from '@/lib/supabase/client'
 import { useFormSchema } from '@/hooks/useFormSchema'
 import { generateFormId } from '@devcode-tech/form-builder'
+import { useContestApi } from '@/hooks/useContestApi'
 
 // Lazy load heavy components
 const ContestFormBuilder = lazy(() => import('@/components/organisms/ContestFormBuilder').then(mod => ({ default: mod.ContestFormBuilder })))
@@ -43,7 +44,8 @@ const steps: ContestFormStep[] = [
   { id: 'create-form', title: 'Create Form' },
   { id: 'actions', title: 'Actions' },
   { id: 'post-capture', title: 'Post Capture' },
-  { id: 'targeting', title: 'Targeting' }
+  { id: 'targeting', title: 'Targeting' },
+  { id: 'share', title: 'Share' }
 ]
 
 // Types are now in schema
@@ -58,8 +60,11 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingForm, setIsLoadingForm] = useState(false)
   const [savedDbFormId, setSavedDbFormId] = useState<string | null>(null)
+  const [savedFormId, setSavedFormId] = useState<string | null>(null) // Embed ID for display
+  const [contestName, setContestName] = useState<string>('') // Store contest name for header
   const formRef = useRef<HTMLDivElement>(null)
-  const { fetchFormSchemaById } = useFormSchema()
+  const { fetchFormSchemaById, createFormSchema, updateFormSchema } = useFormSchema()
+  const { fetchContest, updateContest } = useContestApi()
 
   // Single useForm instance for all contest data
   const form = useForm<CompleteContestData>({
@@ -101,6 +106,9 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
 
   // Watch form builder data for preview
   const formBuilderData = watch('formBuilder')
+  
+  // Watch post capture data for preview
+  const postCaptureData = watch('postCapture')
 
   // Debounced form builder update for better performance
   const debouncedSetFormBuilder = useMemo(
@@ -111,12 +119,19 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
   )
 
   // Load form schema from database
-  const loadFormSchemaFromDb = useCallback(async (formSchemaId: string) => {
+  const loadFormSchemaFromDb = useCallback(async () => {
+    console.log('getting into loadFormSchemaFromDb')
+    if (!savedDbFormId) {
+      console.log('No saved form ID to load')
+      return
+    }
+
     try {
       setIsLoadingForm(true)
-      console.log('Loading form schema from database:', formSchemaId)
+      console.log('Loading form schema from database:', savedDbFormId)
       
-      const formData = await fetchFormSchemaById(formSchemaId)
+      const formData = await fetchFormSchemaById(savedDbFormId)
+      console.log('Form schema loaded successfully:', formData)
       
       if (formData) {
         console.log('Form schema loaded successfully:', formData)
@@ -129,16 +144,20 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
           containers: formData.containers,
           design: formData.design
         })
-        setSavedDbFormId(formSchemaId)
+        // Also set the embed ID for display
+        setSavedFormId(formData.formId || null)
       } else {
-        console.error('Failed to load form schema')
+        console.warn('Form schema not found, will show empty form builder')
+        setSavedDbFormId(null)
       }
     } catch (error) {
       console.error('Error loading form schema:', error)
+      // Don't block - show empty form builder
+      setSavedDbFormId(null)
     } finally {
       setIsLoadingForm(false)
     }
-  }, [fetchFormSchemaById, setValue])
+  }, [savedDbFormId, fetchFormSchemaById, setValue])
 
   // Load existing contest data
   useEffect(() => {
@@ -147,137 +166,119 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
         setIsLoading(true)
         console.log('Loading contest data for:', contestId)
         
-        // Fetch contest data from Supabase
-        const { data: contestData, error } = await supabase
-          .from('contests')
-          .select('*')
-          .eq('id', contestId)
-          .single()
+        // Fetch contest data using API hook
+        const contestData = await fetchContest(contestId)
         
-        if (error) {
-          console.error('Error loading contest:', error)
-          alert('Failed to load contest data')
-          setIsLoading(false)
-          return
+        console.log('Contest data loaded:', contestData)
+        
+        // Helper function to format date for input
+        const formatDateForInput = (dateString: string) => {
+          if (!dateString) return ''
+          // Extract just the date part (YYYY-MM-DD) from ISO string
+          return dateString.split('T')[0]
         }
         
-        if (contestData) {
-          console.log('Contest data loaded:', contestData)
-          
-          // Pre-fill basic details from contest data
-          setValue('basicDetails.name', contestData.name || '')
-          setValue('basicDetails.contestType', contestData.contest_type || '')
-          setValue('basicDetails.startDate', contestData.start_date || '')
-          setValue('basicDetails.endDate', contestData.end_date || '')
-          
-          // TODO: Load other sections when available
-          // setValue('actions.rewardType', contestData.reward_type || '')
-          // setValue('postCapture.behaviour', contestData.post_capture_behaviour || '')
-          // setValue('targeting.audienceSegment', contestData.audience_segment || '')
-          
-          // If contest has a form schema, load it
-          if (contestData.form_schema_id) {
-            console.log('Contest has form schema, loading:', contestData.form_schema_id)
-            setSavedDbFormId(contestData.form_schema_id)
-            await loadFormSchemaFromDb(contestData.form_schema_id)
-          } else {
-            console.log('Contest has no form schema yet - will create on first save')
-          }
+        // Pre-fill basic details from contest data
+        setValue('basicDetails.name', contestData.name || '')
+        setValue('basicDetails.contestType', contestData.contest_type || '')
+        setValue('basicDetails.startDate', formatDateForInput(contestData.start_date))
+        setValue('basicDetails.endDate', formatDateForInput(contestData.end_date))
+        
+        // Store contest name for header display
+        setContestName(contestData.name || 'Untitled Contest')
+        
+        // Load actions data
+        setValue('actions.rewardType', contestData.reward_type || '')
+        setValue('actions.chooseReward', contestData.reward_option || '')
+        
+        // Load post capture data
+        setValue('postCapture.behaviour', contestData.capture_behaviour || '')
+        setValue('postCapture.autoclose', contestData.capture_autoclose || '')
+        setValue('postCapture.title', contestData.capture_title || '')
+        setValue('postCapture.description', contestData.capture_description || '')
+        setValue('postCapture.url', contestData.capture_url || '')
+        
+        // Load targeting data
+        if (contestData.audience_segments && contestData.audience_segments.length > 0) {
+          setValue('targeting.audienceSegment', contestData.audience_segments[0] || '')
+        }
+        
+        // Store form schema ID but don't load it yet (will load when user reaches step 2)
+        if (contestData.form_schema_id) {
+          console.log('Contest has form schema:', contestData.form_schema_id)
+          setSavedDbFormId(contestData.form_schema_id)
+        } else {
+          console.log('Contest has no form schema yet - will create on first save')
+          setSavedDbFormId(null)
         }
         
         setIsLoading(false)
       } catch (error) {
         console.error('Error loading contest:', error)
+        alert('Failed to load contest data')
         setIsLoading(false)
       }
     }
 
     loadContestData()
-  }, [contestId, setValue, loadFormSchemaFromDb])
+  }, [contestId, setValue, fetchContest])
+
+  // Load form schema when savedDbFormId changes (on mount if exists)
+  useEffect(() => {
+    if (savedDbFormId && !isLoading) {
+      loadFormSchemaFromDb()
+    }
+  }, [savedDbFormId, isLoading, loadFormSchemaFromDb])
 
   // Save or update form schema to database
   const saveFormSchema = async () => {
     try {
       const formBuilderData = getValues('formBuilder')
       const { formTitle, formDescription, fields, containers, design } = formBuilderData
-      
-      const schema = {
-        title: formTitle,
-        description: formDescription,
-        fields,
-        containers,
-        design,
-      }
 
-      let dbFormId: string
+      let dbFormId = savedDbFormId
 
-      // Check if we're updating an existing form schema
       if (savedDbFormId) {
-        // UPDATE existing form schema
+        // UPDATE existing form schema using API hook
         console.log('Updating existing form schema:', savedDbFormId)
         
-        const { data, error } = await supabase
-          .from('form_schemas')
-          .update({
-            title: formTitle,
-            description: formDescription,
-            schema: schema,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', savedDbFormId)
-          .select()
-          .single()
-
-        if (error) {
-          console.error('Error updating form:', error)
-          alert(`Error updating form: ${error.message}`)
-          return null
-        }
+        const data = await updateFormSchema(savedDbFormId, {
+          title: formTitle,
+          description: formDescription,
+          fields: fields,
+          containers: containers,
+          design: design
+        })
 
         dbFormId = data.id
+        setSavedFormId(data.form_id) // Update embed ID
         console.log('Form updated successfully:', data)
       } else {
-        // CREATE new form schema (contest exists but no form schema yet)
-        console.log('Creating new form schema for existing contest:', contestId)
+        // CREATE new form schema using API hook
+        console.log('Creating new form schema')
         
         const embedId = generateFormId()
         
-        const { data, error } = await supabase
-          .from('form_schemas')
-          .insert([{
-            title: formTitle,
-            description: formDescription,
-            schema: schema,
-            form_id: embedId,
-            contest_id: contestId,
-          }])
-          .select()
-          .single()
-
-        if (error) {
-          console.error('Error creating form:', error)
-          alert(`Error creating form: ${error.message}`)
-          return null
-        }
+        const data = await createFormSchema({
+          form_id: embedId,
+          contest_id: contestId,
+          title: formTitle,
+          description: formDescription,
+          fields: fields,
+          containers: containers,
+          design: design
+        })
 
         dbFormId = data.id
+        setSavedFormId(data.form_id) // Set embed ID
         console.log('Form created successfully:', data)
 
-        // Update contest record with form_schema_id
-        const { error: contestError } = await supabase
-          .from('contests')
-          .update({ form_schema_id: dbFormId })
-          .eq('id', contestId)
-
-        if (contestError) {
-          console.error('Error linking form to contest:', contestError)
-        } else {
-          console.log('Contest linked to form schema successfully')
-        }
+        // Update contest record with form_schema_id using API hook
+        await updateContest(contestId, { form_schema_id: dbFormId || undefined })
       }
 
       setSavedDbFormId(dbFormId)
-      setValue('formBuilder.formId', dbFormId)
+      setValue('formBuilder.formId', dbFormId || undefined)
       
       return dbFormId
     } catch (error) {
@@ -287,32 +288,15 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
     }
   }
 
-  // Update contest basic details
-  const updateContestBasicDetails = async () => {
+  // Update contest data for any step using API hook
+  const updateContestData = async (stepData: any, stepName: string) => {
     try {
-      const basicDetails = getValues('basicDetails')
-      
-      const { error } = await supabase
-        .from('contests')
-        .update({
-          name: basicDetails.name,
-          contest_type: basicDetails.contestType,
-          start_date: basicDetails.startDate,
-          end_date: basicDetails.endDate,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', contestId)
-
-      if (error) {
-        console.error('Error updating contest:', error)
-        alert(`Error updating contest: ${error.message}`)
-        return false
-      }
-
-      console.log('Contest basic details updated successfully')
+      await updateContest(contestId, stepData)
+      console.log(`Contest ${stepName} updated successfully`)
       return true
     } catch (error) {
-      console.error('Error updating contest:', error)
+      console.error(`Error updating contest ${stepName}:`, error)
+      alert(`Error updating contest: ${error instanceof Error ? error.message : 'Unknown error'}`)
       return false
     }
   }
@@ -326,7 +310,13 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
         isValid = await form.trigger('basicDetails')
         if (isValid) {
           console.log('Basic Details validated:', getValues('basicDetails'))
-          const updated = await updateContestBasicDetails()
+          const basicDetails = getValues('basicDetails')
+          const updated = await updateContestData({
+            name: basicDetails.name,
+            contest_type: basicDetails.contestType,
+            start_date: basicDetails.startDate,
+            end_date: basicDetails.endDate,
+          }, 'basic details')
           if (updated) {
             setCurrentStep(1)
           }
@@ -341,55 +331,71 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
         }
         break
 
-      case 2: // Actions
+      case 2: // Actions - Save to database
         isValid = await form.trigger('actions')
         if (isValid) {
-          console.log('Actions validated:', getValues('actions'))
-          setCurrentStep(3)
+          const actions = getValues('actions')
+          console.log('Actions validated:', actions)
+          const updated = await updateContestData({
+            reward_type: actions.rewardType,
+            reward_option: actions.chooseReward,
+          }, 'actions')
+          if (updated) {
+            setCurrentStep(3)
+          }
         }
         break
 
-      case 3: // Post Capture
+      case 3: // Post Capture - Save to database
         isValid = await form.trigger('postCapture')
         if (isValid) {
-          console.log('Post Capture validated:', getValues('postCapture'))
-          setCurrentStep(4)
+          const postCapture = getValues('postCapture')
+          console.log('Post Capture validated:', postCapture)
+          const updated = await updateContestData({
+            capture_behaviour: postCapture.behaviour,
+            capture_autoclose: postCapture.autoclose,
+            capture_title: postCapture.title,
+            capture_description: postCapture.description,
+            capture_url: postCapture.url,
+          }, 'post capture')
+          if (updated) {
+            setCurrentStep(4)
+          }
         }
         break
 
-      case 4: // Targeting - Final step
+      case 4: // Targeting - Save to database
         isValid = await form.trigger('targeting')
         if (isValid) {
-          console.log('Targeting validated:', getValues('targeting'))
-          await handleFinalSubmit()
+          const targeting = getValues('targeting')
+          console.log('Targeting validated:', targeting)
+          const updated = await updateContestData({
+            audience_segments: [targeting.audienceSegment],
+          }, 'targeting')
+          if (updated) {
+            setCurrentStep(5) // Move to Share step
+          }
         }
+        break
+
+      case 5: // Share - Final step, redirect to contest view
+        await handleFinalSubmit()
         break
     }
   }
 
-  // Final submission - update contest
+  // Final submission - redirect to contest view
   const handleFinalSubmit = async () => {
     const allData = getValues()
     console.log('Contest update completed!')
     console.log('All updated form data:', allData)
 
-    // TODO: Submit to backend
-    // 1. Update form schema separately
-    // await updateFormSchema(contestId, allData.formBuilder)
-    
-    // 2. Update other contest data
-    // await updateContestData(contestId, {
-    //   basicDetails: allData.basicDetails,
-    //   actions: allData.actions,
-    //   postCapture: allData.postCapture,
-    //   targeting: allData.targeting
-    // })
-
-    // Redirect back to contest view page after successful update
+    // All data has been saved incrementally at each step
+    // Redirect back to contest view page
     router.push(`/contests/${contestId}`)
   }
 
-  const handlePrevious = () => {
+  const handlePrevious = async () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1)
     }
@@ -436,9 +442,11 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
                 <ArrowLeft className="w-4 h-4 text-[#637083]" />
               </button>
               <Breadcrumb items={breadcrumbItems} />
-              <span className="text-sm text-[#637083] font-medium truncate">
-                ({contestId})
-              </span>
+              {contestName && (
+                <span className="text-sm text-[#637083] font-medium truncate">
+                  ({contestName})
+                </span>
+              )}
             </div>
             
             {/* Right: Action Buttons */}
@@ -460,7 +468,7 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
                 onClick={handleNext}
                 className="flex px-3 lg:px-4 py-2 justify-center items-center gap-2 rounded bg-[#005EB8] hover:bg-[#004A94] transition-colors text-sm font-medium text-white"
               >
-                {currentStep === 4 ? 'Save Changes' : 'Next Step'}
+                {currentStep === 5 ? 'View Contest' : currentStep === 4 ? 'Finish' : 'Next Step'}
               </button>
             </div>
           </div>
@@ -544,12 +552,109 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
                 </Suspense>
               </div>
             )}
+            
+            {/* Step 6: Share - Show embed code */}
+            {currentStep === 5 && (
+              <div ref={formRef} className="h-full flex flex-col">
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-[#141C25]">
+                      🎉 Contest Updated Successfully!
+                    </h2>
+                    <p className="text-sm text-[#637083] mt-1">
+                      Your contest has been updated and is ready to share
+                    </p>
+                  </div>
+                  
+                  {savedFormId ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="text-base font-semibold text-green-900 mb-1">
+                            Share Your Contest Form
+                          </h3>
+                          <p className="text-xs text-green-700">
+                            Use the embed code below to integrate your contest form:
+                          </p>
+                        </div>
+                        
+                        <div className="bg-white border border-green-300 rounded-lg p-3 space-y-3">
+                          {/* Embed ID Only */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-medium text-gray-700">Embed ID</label>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(savedFormId)
+                                  alert('Embed ID copied to clipboard!')
+                                }}
+                                className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-medium"
+                              >
+                                Copy ID
+                              </button>
+                            </div>
+                            <code className="block text-xs font-mono bg-gray-50 p-2 rounded border border-gray-200 text-gray-700 break-all">
+                              {savedFormId}
+                            </code>
+                          </div>
+                          
+                          {/* Full Embed Code */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-medium text-gray-700">Full Embed Code</label>
+                              <button
+                                onClick={() => {
+                                  const embedCode = `<script src="flint-form.js"></script>\n<div id="${savedFormId}"></div>`
+                                  navigator.clipboard.writeText(embedCode)
+                                  alert('Embed code copied to clipboard!')
+                                }}
+                                className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-medium"
+                              >
+                                Copy Code
+                              </button>
+                            </div>
+                            <code className="block text-xs font-mono bg-gray-50 p-2 rounded border border-gray-200 text-gray-700 whitespace-pre overflow-x-auto">
+                              {`<script src="flint-form.js"></script>\n<div id="${savedFormId}"></div>`}
+                            </code>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                          <p className="text-xs text-blue-800">
+                            <strong>💡 Tip:</strong> Copy the full embed code and paste it into your website.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-xs text-yellow-800">
+                        No form has been created for this contest yet. Please go back to the "Create Form" step to create one.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Preview Section - Hidden on form builder step (step 1) */}
           {currentStep !== 1 && (
             <div className="lg:flex-[0.45] min-h-0">
-              <ContestPreview formData={formBuilderData} currentStep={currentStep} />
+              {currentStep === 3 ? (
+                // Show Post Capture Preview on step 3
+                <PostCapturePreview 
+                  title={postCaptureData.title}
+                  description={postCaptureData.description}
+                  url={postCaptureData.url}
+                />
+              ) : currentStep === 5 ? (
+                // Show form preview on Share step if form exists
+                <ContestPreview formData={formBuilderData} currentStep={currentStep} />
+              ) : (
+                // Show regular contest preview on other steps
+                <ContestPreview formData={formBuilderData} currentStep={currentStep} />
+              )}
             </div>
           )}
         </div>

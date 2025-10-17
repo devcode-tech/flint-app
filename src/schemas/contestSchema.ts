@@ -88,8 +88,9 @@ export type FormFieldData = FormBuilderFieldData
 export type CreateFormData = z.infer<typeof formBuilderSchema>
 
 // Contest type options
-export const contestTypeOptions: Array<{ value: string; label: string }> = [
-  { value: 'engagement', label: 'Engagement Mode' },
-  { value: 'loyalty', label: 'Loyalty Mode' },
-  { value: 'conversion', label: 'Conversion Mode' }
+export const contestTypeOptions: Array<{ value: string; label: string; disabled?: boolean }> = [
+  { value: 'conversion', label: 'Conversion Mode' },
+  { value: 'engagement', label: 'Engagement Mode (Coming Soon)', disabled: true },
+  { value: 'loyalty', label: 'Loyalty Mode (Coming Soon)', disabled: true },
+  { value: 'sweepstakes', label: 'Sweepstakes' }
 ]

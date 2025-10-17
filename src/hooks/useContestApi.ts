@@ -10,6 +10,17 @@ export interface Contest {
   status?: string
   created_at?: string
   updated_at?: string
+  // Actions fields
+  reward_type?: string
+  reward_option?: string
+  // Post Capture fields
+  capture_behaviour?: string
+  capture_autoclose?: string
+  capture_title?: string
+  capture_description?: string
+  capture_url?: string
+  // Targeting fields
+  audience_segments?: string[]
 }
 
 export interface CreateContestData {
@@ -26,6 +37,17 @@ export interface UpdateContestData {
   end_date?: string
   form_schema_id?: string
   status?: string
+  // Actions fields
+  reward_type?: string
+  reward_option?: string
+  // Post Capture fields
+  capture_behaviour?: string
+  capture_autoclose?: string
+  capture_title?: string
+  capture_description?: string
+  capture_url?: string
+  // Targeting fields
+  audience_segments?: string[]
 }
 
 /**

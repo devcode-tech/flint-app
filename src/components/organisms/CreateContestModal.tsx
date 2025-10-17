@@ -16,6 +16,14 @@ const createContestModalSchema = z.object({
   endDate: z.string().min(1, 'End date is required'),
 }).refine((data) => {
   const start = new Date(data.startDate)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0) // Reset time to start of day
+  return start >= today
+}, {
+  message: 'Start date cannot be in the past',
+  path: ['startDate'],
+}).refine((data) => {
+  const start = new Date(data.startDate)
   const end = new Date(data.endDate)
   return end > start
 }, {
@@ -135,8 +143,8 @@ export const CreateContestModal: React.FC<CreateContestModalProps> = ({ isOpen, 
             >
               <option value="">Select contest type</option>
               <option value="conversion">Conversion Mode</option>
-              <option value="engagement">Engagement Mode</option>
-              <option value="referral">Referral Mode</option>
+              <option value="engagement" disabled>Engagement Mode (Coming Soon)</option>
+              <option value="referral" disabled>Loyalty Mode (Coming Soon)</option>
               <option value="sweepstakes">Sweepstakes</option>
             </select>
             {errors.contestType && (
@@ -153,6 +161,7 @@ export const CreateContestModal: React.FC<CreateContestModalProps> = ({ isOpen, 
               <input
                 id="startDate"
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 {...register('startDate')}
                 className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />

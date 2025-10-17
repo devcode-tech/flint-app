@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Edit, Pause } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Breadcrumb } from '@/components/molecules/Breadcrumb'
@@ -9,6 +9,12 @@ import { LeadsTable } from '@/components/organisms/LeadsTable'
 import { AnalyticsView } from '@/components/organisms/AnalyticsView'
 import { PickWinnersView } from '@/components/organisms/PickWinnersView'
 import { cn } from '@/lib/utils'
+import { useContestApi } from '@/hooks/useContestApi'
+import { useFormSchema } from '@/hooks/useFormSchema'
+import type { Contest } from '@/types/contest'
+import type { FormBuilderData } from '@/hooks/useFormSchema'
+import { FormPreviewLive } from '@devcode-tech/form-builder'
+import { ContestPreview } from '@/components/organisms/ContestPreview'
 
 interface ContestViewPageProps {
   contestId?: string
@@ -28,14 +34,67 @@ export const ContestViewPage: React.FC<ContestViewPageProps> = ({
 }) => {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('preview')
+  const [contest, setContest] = useState<Contest | null>(null)
+  const [formData, setFormData] = useState<FormBuilderData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const { fetchContest } = useContestApi()
+  const { fetchFormSchemaById } = useFormSchema()
+
+  // Load contest and form data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Fetch contest
+        const contestData = await fetchContest(contestId)
+        setContest(contestData)
+        
+        // Fetch form schema if exists
+        if (contestData.form_schema_id) {
+          const form = await fetchFormSchemaById(contestData.form_schema_id)
+          if (form) {
+            setFormData(form)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading contest data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
+  }, [contestId, fetchContest, fetchFormSchemaById])
 
   const breadcrumbItems = [
     { label: 'Contests', href: '/contests' },
-    { label: contestId, href: `/contests/${contestId}` },
+    { label: contest?.name || contestId, href: `/contests/${contestId}` },
   ]
 
   const handleEditClick = () => {
     router.push(`/contests/${contestId}/edit`)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 border-4 border-[#E4E7EC] border-t-[#005EB8] rounded-full animate-spin" />
+          <p className="text-sm text-[#637083]">Loading contest...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!contest) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg text-[#637083]">Contest not found</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -63,13 +122,24 @@ export const ContestViewPage: React.FC<ContestViewPageProps> = ({
       </div>
 
       {/* Status Banner */}
-      <div className="bg-[#E4FFF5] border-b border-[#E4E7EC]">
-        <div className="flex justify-center items-center py-2">
-          <span className="text-[#0C8053] font-medium text-sm">
-            This contest is Active
-          </span>
+      {contest.status === 'active' && (
+        <div className="bg-[#E4FFF5] border-b border-[#E4E7EC]">
+          <div className="flex justify-center items-center py-2">
+            <span className="text-[#0C8053] font-medium text-sm">
+              This contest is Active
+            </span>
+          </div>
         </div>
-      </div>
+      )}
+      {contest.status === 'draft' && (
+        <div className="bg-[#FFF4E6] border-b border-[#E4E7EC]">
+          <div className="flex justify-center items-center py-2">
+            <span className="text-[#B54708] font-medium text-sm">
+              This contest is in Draft
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 bg-[#F9FAFB]">
@@ -106,7 +176,7 @@ export const ContestViewPage: React.FC<ContestViewPageProps> = ({
 
                 {/* Right Panel - Contest Preview */}
                 <div className="flex-1 min-w-0">
-                  <ContestPreviewPanel />
+                  <ContestPreviewPanel formData={formData} contest={contest} />
                 </div>
               </div>
             ) : activeTab === 'leads' ? (
@@ -137,50 +207,39 @@ export const ContestViewPage: React.FC<ContestViewPageProps> = ({
 
 
 // Contest Preview Panel Component
-const ContestPreviewPanel: React.FC = () => {
+interface ContestPreviewPanelProps {
+  formData: FormBuilderData | null
+  contest: Contest
+}
+
+const ContestPreviewPanel: React.FC<ContestPreviewPanelProps> = ({ formData, contest }) => {
+  const hasForm = formData && formData.fields && formData.fields.length > 0
+
   return (
-    <div className="h-full p-6 border border-[#E4E7EC] rounded-xl bg-[#FAFBFC] flex flex-col items-center gap-6 shadow-sm">
-      {/* Header Section */}
-      <div className="w-full text-center mb-4">
-        <h3 className="text-lg font-semibold text-[#141C25] mb-2">Contest Preview</h3>
-        <p className="text-sm text-[#637083]">Preview how your contest will appear to participants</p>
-      </div>
-      
-      {/* Header Image Placeholder */}
-      <div className="w-full h-48 bg-gradient-to-br from-[#E2F1FF] to-[#B8E0FF] rounded-xl flex-shrink-0 flex items-center justify-center border border-[#E4E7EC]">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-white/50 rounded-full mx-auto mb-3 flex items-center justify-center">
-            <div className="w-8 h-8 bg-[#005EB8]/20 rounded-full"></div>
+    <div className="h-full border border-[#E4E7EC] rounded-xl bg-white shadow-sm overflow-auto">
+      {hasForm ? (
+        // Use FormPreviewLive from form-builder library
+        <div className="p-6">
+          <div className="mb-6 text-center">
+            <h3 className="text-xl font-semibold text-[#141C25] mb-2">
+              {contest.name}
+            </h3>
+            <p className="text-sm text-[#637083]">
+              Contest Preview
+            </p>
           </div>
-          <p className="text-[#637083] text-sm font-medium">Header Image</p>
+          <FormPreviewLive
+            fields={formData.fields}
+            containers={formData.containers || []}
+            formTitle={formData.formTitle || contest.name}
+            formDescription={formData.formDescription || 'Enter the contest by filling out the form below'}
+            formDesign={formData.design || {}}
+          />
         </div>
-      </div>
-      
-      {/* Form Fields Placeholders */}
-      <div className="w-full max-w-[500px] flex flex-col gap-4">
-        <div className="text-center mb-2">
-          <p className="text-sm font-medium text-[#637083]">Entry Form Fields</p>
-        </div>
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div
-            key={index}
-            className="w-full h-[42px] bg-white rounded-lg border border-[#E4E7EC] shadow-sm flex items-center px-4"
-          >
-            <div className="w-2 h-2 bg-[#E4E7EC] rounded-full mr-3"></div>
-            <div className="w-full h-2 bg-[#F2F2F2] rounded-full"></div>
-          </div>
-        ))}
-        
-        {/* Submit Button Placeholder */}
-        <div className="w-full h-[42px] bg-[#005EB8] rounded-lg flex items-center justify-center mt-2">
-          <span className="text-white text-sm font-semibold">Submit Entry</span>
-        </div>
-      </div>
-      
-      {/* Footer Image Placeholder */}
-      <div className="w-full h-[100px] bg-gradient-to-br from-[#E2F1FF] to-[#B8E0FF] rounded-xl flex-shrink-0 mt-auto flex items-center justify-center border border-[#E4E7EC]">
-        <p className="text-[#637083] text-sm font-medium">Footer Content</p>
-      </div>
+      ) : (
+        // Use ContestPreview component for default preview
+        <ContestPreview formData={null} currentStep={0} />
+      )}
     </div>
   )
 }

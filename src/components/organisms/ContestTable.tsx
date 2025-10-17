@@ -107,7 +107,7 @@ export const ContestTable: React.FC<ContestTableProps> = ({
               <div className="flex w-28 lg:w-32 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col justify-center items-start">
                   <div className="text-[#637083] text-xs lg:text-sm font-medium leading-5">
-                    {contest.createdDate}
+                    {contest.created_at ? new Date(contest.created_at).toLocaleDateString() : '-'}
                   </div>
                 </div>
               </div>
@@ -116,7 +116,7 @@ export const ContestTable: React.FC<ContestTableProps> = ({
               <div className="flex w-24 lg:w-28 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col justify-center items-start">
                   <div className="text-[#637083] text-xs lg:text-sm font-medium leading-5">
-                    {contest.impression.toLocaleString()}
+                    {contest.impression?.toLocaleString() || '0'}
                   </div>
                 </div>
               </div>
@@ -125,7 +125,7 @@ export const ContestTable: React.FC<ContestTableProps> = ({
               <div className="flex w-24 lg:w-28 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col justify-center items-start">
                   <div className="text-[#637083] text-xs lg:text-sm font-medium leading-5">
-                    {contest.conversion.toLocaleString()}
+                    {contest.conversion?.toLocaleString() || '0'}
                   </div>
                 </div>
               </div>
@@ -134,7 +134,7 @@ export const ContestTable: React.FC<ContestTableProps> = ({
               <div className="flex w-28 lg:w-32 px-3 lg:px-5 py-4 lg:py-5 items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col justify-center items-start">
                   <div className="text-[#637083] text-xs lg:text-sm font-medium leading-5">
-                    {contest.conversionRate}%
+                    {contest.conversionRate || 0}%
                   </div>
                 </div>
               </div>
