@@ -9,6 +9,7 @@ import { Control, Controller } from 'react-hook-form'
 interface Option {
   value: string
   label: string
+  disabled?: boolean
 }
 
 interface FormSelectProps {
@@ -76,11 +77,13 @@ export const FormSelect: React.FC<FormSelectProps> = ({
                     <Select.Item
                       key={option.value}
                       value={option.value}
+                      disabled={option.disabled}
                       className={cn(
                         'relative flex items-center px-4 py-2 rounded cursor-pointer',
                         'text-[#344051] font-inter text-sm font-normal leading-5',
                         'hover:bg-[#F9FAFB] focus:bg-[#F9FAFB] focus:outline-none',
-                        'data-[state=checked]:bg-[#EDF5FF] data-[state=checked]:text-[#005EB8]'
+                        'data-[state=checked]:bg-[#EDF5FF] data-[state=checked]:text-[#005EB8]',
+                        option.disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent'
                       )}
                     >
                       <Select.ItemText>{option.label}</Select.ItemText>
