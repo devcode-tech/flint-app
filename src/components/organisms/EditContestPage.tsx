@@ -10,17 +10,20 @@ import { Stepper } from '@/components/molecules/Stepper'
 import { BasicDetailsForm } from '@/components/organisms/BasicDetailsForm'
 import { ContestPreview } from '@/components/organisms/ContestPreview'
 import { PostCapturePreview } from '@/components/organisms/PostCapturePreview'
+import { PostContestPreview } from '@/components/organisms/PostContestPreview'
 import { cn } from '@/lib/utils'
 import { completeContestSchema, type CompleteContestData } from '@/schemas/contestSchema'
 import { debounce } from '@/lib/utils/debounce'
 import { useFormSchema } from '@/hooks/useFormSchema'
 import { generateFormId } from '@devcode-tech/form-builder'
 import { useContestApi } from '@/hooks/useContestApi'
+import { EmbedCodeSection } from './EmbedCodeSection'
 
 // Lazy load heavy components
 const ContestFormBuilder = lazy(() => import('@/components/organisms/ContestFormBuilder').then(mod => ({ default: mod.ContestFormBuilder })))
 const ActionsForm = lazy(() => import('@/components/organisms/ActionsForm'))
 const PostCaptureForm = lazy(() => import('@/components/organisms/PostCaptureForm'))
+const PostContestForm = lazy(() => import('@/components/organisms/PostContestForm'))
 const TargetingForm = lazy(() => import('@/components/organisms/TargetingForm'))
 
 // Loading component
@@ -44,6 +47,7 @@ const steps: ContestFormStep[] = [
   { id: 'create-form', title: 'Create Form' },
   { id: 'actions', title: 'Actions' },
   { id: 'post-capture', title: 'Post Capture' },
+  { id: 'post-contest', title: 'After Contest Ends' },
   { id: 'targeting', title: 'Targeting' },
   { id: 'share', title: 'Share' }
 ]
@@ -96,6 +100,9 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
         description: '',
         url: ''
       },
+      postContest: {
+        content: ''
+      },
       targeting: {
         audienceSegment: ''
       }
@@ -109,6 +116,12 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
   
   // Watch post capture data for preview
   const postCaptureData = watch('postCapture')
+
+  // Watch post contest data for preview
+  const postContestData = watch('postContest')
+
+  // Watch end date for post contest form
+  const endDate = watch('basicDetails.endDate')
 
   // Debounced form builder update for better performance
   const debouncedSetFormBuilder = useMemo(
@@ -194,9 +207,12 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
         // Load post capture data
         setValue('postCapture.behaviour', contestData.capture_behaviour || '')
         setValue('postCapture.autoclose', contestData.capture_autoclose || '')
-        setValue('postCapture.title', contestData.capture_title || '')
-        setValue('postCapture.description', contestData.capture_description || '')
-        setValue('postCapture.url', contestData.capture_url || '')
+        setValue('postCapture.title', contestData.post_capture_content || '')
+        setValue('postCapture.description', '')
+        setValue('postCapture.url', '')
+        
+        // Load post contest data
+        setValue('postContest.content', contestData.end_contest || '')
         
         // Load targeting data
         if (contestData.audience_segments && contestData.audience_segments.length > 0) {
@@ -354,9 +370,7 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
           const updated = await updateContestData({
             capture_behaviour: postCapture.behaviour,
             capture_autoclose: postCapture.autoclose,
-            capture_title: postCapture.title,
-            capture_description: postCapture.description,
-            capture_url: postCapture.url,
+            post_capture_content: postCapture.title, // Store markdown content in post_capture_content
           }, 'post capture')
           if (updated) {
             setCurrentStep(4)
@@ -364,7 +378,20 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
         }
         break
 
-      case 4: // Targeting - Save to database
+      case 4: // Post Contest (optional)
+        // No validation needed as it's optional
+        const postContest = getValues('postContest')
+        // Only save if content is provided
+        if (postContest.content && postContest.content.trim() !== '') {
+          await updateContestData({
+            end_contest: postContest.content, // Store markdown content in end_contest
+          }, 'post contest')
+        }
+        // Move to next step regardless of whether content was provided
+        setCurrentStep(5)
+        break
+
+      case 5: // Targeting - Save to database
         isValid = await form.trigger('targeting')
         if (isValid) {
           const targeting = getValues('targeting')
@@ -373,12 +400,12 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
             audience_segments: [targeting.audienceSegment],
           }, 'targeting')
           if (updated) {
-            setCurrentStep(5) // Move to Share step
+            setCurrentStep(6) // Move to Share step
           }
         }
         break
 
-      case 5: // Share - Final step, redirect to contest view
+      case 6: // Share - Final step, redirect to contest view
         await handleFinalSubmit()
         break
     }
@@ -468,7 +495,7 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
                 onClick={handleNext}
                 className="flex px-3 lg:px-4 py-2 justify-center items-center gap-2 rounded bg-[#005EB8] hover:bg-[#004A94] transition-colors text-sm font-medium text-white"
               >
-                {currentStep === 5 ? 'View Contest' : currentStep === 4 ? 'Finish' : 'Next Step'}
+                {currentStep === 6 ? 'View Contest' : currentStep === 5 ? 'Finish' : 'Next Step'}
               </button>
             </div>
           </div>
@@ -495,6 +522,7 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
                 <BasicDetailsForm
                   control={form.control}
                   fieldPrefix="basicDetails"
+                  isDisabled={true}
                 />
               </div>
             )}
@@ -541,8 +569,21 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
               </div>
             )}
             
-            {/* Step 5: Targeting */}
+            {/* Step 5: Post Contest */}
             {currentStep === 4 && (
+              <div ref={formRef} className="h-full">
+                <Suspense fallback={<FormLoading />}>
+                  <PostContestForm
+                    control={form.control}
+                    fieldPrefix="postContest"
+                    endDate={endDate}
+                  />
+                </Suspense>
+              </div>
+            )}
+            
+            {/* Step 6: Targeting */}
+            {currentStep === 5 && (
               <div ref={formRef} className="h-full">
                 <Suspense fallback={<FormLoading />}>
                   <TargetingForm
@@ -553,8 +594,8 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
               </div>
             )}
             
-            {/* Step 6: Share - Show embed code */}
-            {currentStep === 5 && (
+            {/* Step 7: Share - Show embed code */}
+            {currentStep === 6 && (
               <div ref={formRef} className="h-full flex flex-col">
                 <div className="space-y-4">
                   <div>
@@ -566,73 +607,7 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
                     </p>
                   </div>
                   
-                  {savedFormId ? (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <div className="space-y-3">
-                        <div>
-                          <h3 className="text-base font-semibold text-green-900 mb-1">
-                            Share Your Contest Form
-                          </h3>
-                          <p className="text-xs text-green-700">
-                            Use the embed code below to integrate your contest form:
-                          </p>
-                        </div>
-                        
-                        <div className="bg-white border border-green-300 rounded-lg p-3 space-y-3">
-                          {/* Embed ID Only */}
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <label className="text-xs font-medium text-gray-700">Embed ID</label>
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(savedFormId)
-                                  alert('Embed ID copied to clipboard!')
-                                }}
-                                className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-medium"
-                              >
-                                Copy ID
-                              </button>
-                            </div>
-                            <code className="block text-xs font-mono bg-gray-50 p-2 rounded border border-gray-200 text-gray-700 break-all">
-                              {savedFormId}
-                            </code>
-                          </div>
-                          
-                          {/* Full Embed Code */}
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <label className="text-xs font-medium text-gray-700">Full Embed Code</label>
-                              <button
-                                onClick={() => {
-                                  const embedCode = `<script src="flint-form.js"></script>\n<div id="${savedFormId}"></div>`
-                                  navigator.clipboard.writeText(embedCode)
-                                  alert('Embed code copied to clipboard!')
-                                }}
-                                className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-medium"
-                              >
-                                Copy Code
-                              </button>
-                            </div>
-                            <code className="block text-xs font-mono bg-gray-50 p-2 rounded border border-gray-200 text-gray-700 whitespace-pre overflow-x-auto">
-                              {`<script src="flint-form.js"></script>\n<div id="${savedFormId}"></div>`}
-                            </code>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-blue-50 border border-blue-200 rounded p-2">
-                          <p className="text-xs text-blue-800">
-                            <strong>💡 Tip:</strong> Copy the full embed code and paste it into your website.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <p className="text-xs text-yellow-800">
-                        No form has been created for this contest yet. Please go back to the "Create Form" step to create one.
-                      </p>
-                    </div>
-                  )}
+                  <EmbedCodeSection embedId={savedFormId} />
                 </div>
               </div>
             )}
@@ -642,18 +617,20 @@ export const EditContestPage: React.FC<EditContestPageProps> = ({ contestId }) =
           {currentStep !== 1 && (
             <div className="lg:flex-[0.45] min-h-0">
               {currentStep === 3 ? (
-                // Show Post Capture Preview on step 3
+                // Show Post Capture Preview on step 3 (Post Capture)
                 <PostCapturePreview 
                   title={postCaptureData.title}
                   description={postCaptureData.description}
                   url={postCaptureData.url}
                 />
-              ) : currentStep === 5 ? (
-                // Show form preview on Share step if form exists
-                <ContestPreview formData={formBuilderData} currentStep={currentStep} />
+              ) : currentStep === 4 ? (
+                // Show Post Contest Preview on step 4 (After Contest Ends)
+                <PostContestPreview
+                  content={postContestData.content}
+                />
               ) : (
-                // Show regular contest preview on other steps
-                <ContestPreview formData={formBuilderData} currentStep={currentStep} />
+                // Show SVG placeholder on all other steps (0, 2, 5, 6)
+                <ContestPreview formData={null} currentStep={currentStep} />
               )}
             </div>
           )}

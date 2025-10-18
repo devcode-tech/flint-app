@@ -45,22 +45,23 @@ const TargetingForm: React.FC<TargetingFormProps> = ({ control, fieldPrefix, cla
       <div className="flex flex-col flex-1">
         <div className="flex flex-col gap-2 flex-1">
           {/* Input Field Header */}
-          <div className="flex justify-between items-start self-stretch">
+          <div className="flex justify-between items-center self-stretch gap-4 flex-wrap">
             {/* Label */}
-            <div className="flex items-center gap-1">
-              <label className="text-[#141C25] font-inter text-sm font-medium leading-5">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <label className="text-[#141C25] font-inter text-sm font-medium leading-5 whitespace-nowrap">
                 Choose Audience Segment
               </label>
+              <span className="text-red-500 text-sm">*</span>
             </div>
             
             {/* Create New Segment Button */}
             <button
               type="button"
               onClick={handleCreateNewSegment}
-              className="flex justify-center items-center gap-2 rounded bg-white hover:bg-gray-50 transition-colors"
+              className="flex justify-center items-center gap-2 rounded bg-white hover:bg-gray-50 transition-colors flex-shrink-0"
             >
               <Plus className="w-5 h-5 text-[#005EB8]" strokeWidth={1.5} />
-              <span className="text-[#005EB8] text-center font-inter text-sm font-medium leading-5 capitalize">
+              <span className="text-[#005EB8] text-center font-inter text-sm font-medium leading-5 capitalize whitespace-nowrap">
                 Create New Segment
               </span>
             </button>
@@ -75,7 +76,7 @@ const TargetingForm: React.FC<TargetingFormProps> = ({ control, fieldPrefix, cla
               placeholder="Smart Audience Segment"
               options={audienceSegmentOptions}
               error={errors.targeting?.audienceSegment?.message}
-              required
+              // required
             />
           </div>
         </div>

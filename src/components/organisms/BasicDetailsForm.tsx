@@ -11,17 +11,19 @@ interface BasicDetailsFormProps {
   control: Control<CompleteContestData>
   fieldPrefix: 'basicDetails'
   className?: string
+  isDisabled?: boolean
 }
 
 export const BasicDetailsForm: React.FC<BasicDetailsFormProps> = ({
   control,
   fieldPrefix,
-  className
+  className,
+  isDisabled
 }) => {
   const { formState: { errors } } = useFormContext<CompleteContestData>() || { formState: { errors: {} } }
 
   return (
-    <div className={cn('h-full flex flex-col overflow-auto', className)}>
+    <div className={cn('h-full flex flex-col overflow-auto p-1', className)}>
       {/* Header */}
       <div className="flex flex-col gap-2 mb-6">
         <h2 className="text-[#141C25] font-inter text-lg font-semibold leading-7">
@@ -34,7 +36,7 @@ export const BasicDetailsForm: React.FC<BasicDetailsFormProps> = ({
         
         {/* Form */}
         <div className="flex-1">
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 pb-2">
           {/* Contest Name */}
           <FormInput
             name={`${fieldPrefix}.name`}
@@ -63,6 +65,7 @@ export const BasicDetailsForm: React.FC<BasicDetailsFormProps> = ({
             label="Contest Start Date"
             type="date"
             required
+            disabled = {isDisabled}
             error={errors.basicDetails?.startDate?.message}
           />
           
@@ -73,6 +76,7 @@ export const BasicDetailsForm: React.FC<BasicDetailsFormProps> = ({
             label="Contest End Date"
             type="date"
             required
+            disabled = {isDisabled}
             error={errors.basicDetails?.endDate?.message}
           />
         </div>

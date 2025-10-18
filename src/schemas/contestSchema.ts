@@ -56,9 +56,14 @@ export const actionsSchema = z.object({
 export const postCaptureSchema = z.object({
   behaviour: z.string().min(1, 'Behaviour is required'),
   autoclose: z.string().min(1, 'Autoclose is required'),
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
-  url: z.string().url('Please enter a valid URL').min(1, 'URL is required')
+  title: z.string().min(1, 'Post capture content is required'),
+  description: z.string().optional(), // No longer used - kept for compatibility
+  url: z.string().optional() // No longer used - kept for compatibility
+})
+
+// Post Contest Schema - content shown after contest ends (optional)
+export const postContestSchema = z.object({
+  content: z.string().optional()
 })
 
 // Targeting Schema - matches the actual TargetingForm implementation
@@ -72,6 +77,7 @@ export const completeContestSchema = z.object({
   formBuilder: formBuilderSchema,
   actions: actionsSchema,
   postCapture: postCaptureSchema,
+  postContest: postContestSchema,
   targeting: targetingSchema
 })
 
@@ -80,6 +86,7 @@ export type BasicDetailsFormData = z.infer<typeof basicDetailsSchema>
 export type FormBuilderData = z.infer<typeof formBuilderSchema>
 export type ActionsData = z.infer<typeof actionsSchema>
 export type PostCaptureData = z.infer<typeof postCaptureSchema>
+export type PostContestData = z.infer<typeof postContestSchema>
 export type TargetingData = z.infer<typeof targetingSchema>
 export type CompleteContestData = z.infer<typeof completeContestSchema>
 

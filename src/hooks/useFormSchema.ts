@@ -25,6 +25,7 @@ export interface FormBuilderData {
   fields: FormFieldData[]
   containers: LayoutContainer[]
   design: FormDesign
+  embedId?: string
 }
 
 /**
@@ -66,7 +67,8 @@ export function useFormSchema() {
         formDescription: data.schema.description || data.description,
         fields: data.schema.fields || [],
         containers: data.schema.containers || [],
-        design: data.schema.design || {}
+        design: data.schema.design || {},
+        embedId: data.form_id
       }
 
       return formBuilderData

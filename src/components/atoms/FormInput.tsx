@@ -18,6 +18,7 @@ interface FormInputProps {
   control?: Control<any>
   multiline?: boolean
   rows?: number
+  disabled?: boolean
   onFocus?: () => void
 }
 
@@ -33,6 +34,7 @@ export const FormInput: React.FC<FormInputProps> = ({
   control,
   multiline = false,
   rows = 3,
+  disabled = false,
   onFocus
 }) => {
   const inputClassName = cn(
@@ -40,7 +42,8 @@ export const FormInput: React.FC<FormInputProps> = ({
     'text-[#141C25] font-inter text-base font-normal leading-6',
     'placeholder:text-[#97A1AF] focus:outline-none focus:ring-2 focus:ring-[#005EB8] focus:border-transparent',
     error ? 'border-red-500' : 'border-[#E4E7EC]',
-    multiline && 'resize-none'
+    multiline && 'resize-none',
+    disabled && 'bg-[#E4E7EC] cursor-not-allowed'
   )
 
   if (control) {
@@ -69,6 +72,7 @@ export const FormInput: React.FC<FormInputProps> = ({
                 rows={rows}
                 onFocus={onFocus}
                 className={inputClassName}
+                disabled={disabled}
               />
             ) : (
               <input
@@ -77,6 +81,7 @@ export const FormInput: React.FC<FormInputProps> = ({
                 placeholder={placeholder}
                 onFocus={onFocus}
                 className={inputClassName}
+                disabled={disabled}
               />
             )
           )}
@@ -116,6 +121,7 @@ export const FormInput: React.FC<FormInputProps> = ({
           onFocus={onFocus}
           {...registration}
           className={inputClassName}
+          disabled={disabled}
         />
       ) : (
         <input
@@ -124,6 +130,7 @@ export const FormInput: React.FC<FormInputProps> = ({
           onFocus={onFocus}
           {...registration}
           className={inputClassName}
+          disabled={disabled}
         />
       )}
       

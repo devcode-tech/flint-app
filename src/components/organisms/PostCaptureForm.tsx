@@ -1,10 +1,10 @@
 'use client'
 
 import React from 'react'
-import { Control, useFormContext } from 'react-hook-form'
+import { Control, useFormContext, Controller } from 'react-hook-form'
 import { cn } from '@/lib/utils'
 import FormDropdown from '@/components/atoms/FormDropdown'
-import FormInput from '@/components/atoms/FormInput'
+import { EnhancedRichTextEditor } from '@/components/atoms/EnhancedRichTextEditor'
 import type { CompleteContestData } from '@/schemas/contestSchema'
 
 interface PostCaptureFormProps {
@@ -71,41 +71,22 @@ const PostCaptureForm: React.FC<PostCaptureFormProps> = ({ control, fieldPrefix,
             />
           </div>
 
-          {/* Title */}
+          {/* Combined Content Editor */}
           <div className="flex flex-col gap-2">
-            <FormInput
+            <Controller
               name={`${fieldPrefix}.title`}
               control={control}
-              label="Title"
-              placeholder="Thank You Title"
-              error={errors.postCapture?.title?.message}
-              required
-            />
-          </div>
-
-          {/* Description */}
-          <div className="flex flex-col gap-2">
-            <FormInput
-              name={`${fieldPrefix}.description`}
-              control={control}
-              label="Description"
-              placeholder="Description"
-              error={errors.postCapture?.description?.message}
-              required
-              multiline
-              rows={4}
-            />
-          </div>
-
-          {/* URL */}
-          <div className="flex flex-col gap-2">
-            <FormInput
-              name={`${fieldPrefix}.url`}
-              control={control}
-              label="URL"
-              placeholder="https://"
-              error={errors.postCapture?.url?.message}
-              required
+              render={({ field }) => (
+                <EnhancedRichTextEditor
+                  value={field.value}
+                  onChange={field.onChange}
+                  label="Post Capture Content"
+                  placeholder="Enter your thank you message here..."
+                  error={errors.postCapture?.title?.message}
+                  required
+                  minHeight="300px"
+                />
+              )}
             />
           </div>
         </div>

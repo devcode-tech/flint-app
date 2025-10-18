@@ -180,7 +180,7 @@ export const ContestListing: React.FC = () => {
         </div>
 
         {/* Contest Table */}
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto">
           <ContestTable
             contests={paginatedContests}
             onStatusToggle={handleStatusToggle}

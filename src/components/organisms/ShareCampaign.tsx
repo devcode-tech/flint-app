@@ -7,11 +7,13 @@ import { cn } from '@/lib/utils'
 interface ShareCampaignProps {
   contestUrl?: string
   className?: string
+  contestName: string
 }
 
 export const ShareCampaign: React.FC<ShareCampaignProps> = ({ 
   contestUrl = 'https://example.com',
-  className 
+  className,
+  contestName 
 }) => {
   const [url, setUrl] = useState(contestUrl)
   const [copied, setCopied] = useState(false)
@@ -31,7 +33,7 @@ export const ShareCampaign: React.FC<ShareCampaignProps> = ({
   }
 
   return (
-    <div className={cn('h-full p-4 border border-[#E4E7EC] rounded-lg bg-white', className)}>
+    <div className={cn('h-auto p-4 border border-[#E4E7EC] rounded-lg bg-white', className)}>
       <div className="flex flex-col gap-4">
         {/* Header */}
         <div className="flex flex-col gap-2">
@@ -39,7 +41,7 @@ export const ShareCampaign: React.FC<ShareCampaignProps> = ({
             Share Campaign
           </h2>
           <p className="text-[#344051] text-sm leading-5 capitalize">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit
+           {contestName}
           </p>
           
           {/* Divider */}
@@ -58,7 +60,7 @@ export const ShareCampaign: React.FC<ShareCampaignProps> = ({
               value={url}
               onChange={handleUrlChange}
               className="flex-1 bg-transparent text-[#97A1AF] text-base leading-6 outline-none placeholder:text-[#97A1AF]"
-              placeholder="https://example.com"
+              placeholder={contestUrl}
             />
             
             <button

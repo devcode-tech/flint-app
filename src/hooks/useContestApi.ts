@@ -13,12 +13,16 @@ export interface Contest {
   // Actions fields
   reward_type?: string
   reward_option?: string
-  // Post Capture fields
+  // Post capture fields
   capture_behaviour?: string
   capture_autoclose?: string
+  post_capture_content?: string // Markdown content for post-capture message
+  // Legacy post capture fields (deprecated)
   capture_title?: string
   capture_description?: string
   capture_url?: string
+  // Post contest field
+  end_contest?: string // Markdown content for after contest ends message
   // Targeting fields
   audience_segments?: string[]
 }

@@ -145,7 +145,6 @@ export const CreateContestModal: React.FC<CreateContestModalProps> = ({ isOpen, 
               <option value="conversion">Conversion Mode</option>
               <option value="engagement" disabled>Engagement Mode (Coming Soon)</option>
               <option value="referral" disabled>Loyalty Mode (Coming Soon)</option>
-              <option value="sweepstakes">Sweepstakes</option>
             </select>
             {errors.contestType && (
               <p className="mt-1 text-sm text-red-600">{errors.contestType.message}</p>
@@ -157,16 +156,13 @@ export const CreateContestModal: React.FC<CreateContestModalProps> = ({ isOpen, 
             <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
               Contest Start Date
             </label>
-            <div className="relative">
-              <input
-                id="startDate"
-                type="date"
-                min={new Date().toISOString().split('T')[0]}
-                {...register('startDate')}
-                className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-            </div>
+            <input
+              id="startDate"
+              type="date"
+              min={new Date().toISOString().split('T')[0]}
+              {...register('startDate')}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
             {errors.startDate && (
               <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>
             )}
@@ -177,15 +173,12 @@ export const CreateContestModal: React.FC<CreateContestModalProps> = ({ isOpen, 
             <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
               Contest End Date
             </label>
-            <div className="relative">
-              <input
-                id="endDate"
-                type="date"
-                {...register('endDate')}
-                className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-            </div>
+            <input
+              id="endDate"
+              type="date"
+              {...register('endDate')}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
             {errors.endDate && (
               <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>
             )}
